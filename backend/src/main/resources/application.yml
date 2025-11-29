@@ -1,0 +1,142 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ledger-service
+
+  # 기본 프로파일 설정 (명시적으로 지정하지 않으면 dev 사용)
+  profiles:
+    default: dev
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    # HikariCP Connection Pool 설정
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DB_POOL_IDLE_TIMEOUT:600000}
+      max-lifetime: ${DB_POOL_MAX_LIFETIME:1800000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION:60000}
+      connection-test-query: SELECT 1
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  # Transaction 타임아웃 설정 (30초)
+  transaction:
+    default-timeout: ${TRANSACTION_TIMEOUT:30}
+
+  # Kafka 설정
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: ledger-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "com.hamkkebu.ledgerservice.*,com.hamkkebu.boilerplate.*"
+
+  # Redis 설정
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:2000ms}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Kafka 토픽 설정
+kafka:
+  topics:
+    ledger-events: ledger.events
+    user-events: user.events
+
+# JWT 설정 (토큰 검증용 - auth-service와 동일한 secret 사용)
+jwt:
+  secret: ${JWT_SECRET}
+
+# gRPC 설정 (내부 서비스 간 통신)
+grpc:
+  server:
+    port: ${GRPC_SERVER_PORT:9090}
+    max-inbound-message-size: 4194304
+    max-inbound-metadata-size: 8192
+  client:
+    auth-service:
+      address: ${AUTH_SERVICE_GRPC_ADDRESS:static://localhost:9091}
+      negotiationType: plaintext
+      enable-keep-alive: true
+      keep-alive-time: 30s
+      keep-alive-timeout: 10s
+
+# Resilience4j Circuit Breaker 설정
+resilience4j:
+  circuitbreaker:
+    instances:
+      authService:
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - io.grpc.StatusRuntimeException
+
+  timelimiter:
+    instances:
+      authService:
+        timeout-duration: 3s
+
+# Swagger UI 공통 설정
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+    disable-swagger-default-url: true
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+
+# 로깅 설정
+logging:
+  level:
+    com.hamkkebu.ledgerservice: INFO
+    com.hamkkebu.boilerplate: INFO

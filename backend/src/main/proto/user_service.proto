@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.hamkkebu.ledgerservice.grpc.user";
+option java_outer_classname = "UserServiceProto";
+
+package user;
+
+/**
+ * Auth Service 사용자 서비스 (내부 API)
+ *
+ * ledger-service에서 auth-service의 사용자 정보를 조회하기 위한 gRPC 서비스입니다.
+ */
+service UserService {
+  /**
+   * 사용자 ID로 사용자 정보 조회
+   */
+  rpc GetUser (GetUserRequest) returns (GetUserResponse);
+
+  /**
+   * 여러 사용자 ID로 배치 조회 (성능 최적화)
+   */
+  rpc GetUsers (GetUsersRequest) returns (GetUsersResponse);
+
+  /**
+   * 사용자 존재 여부 확인 (가벼운 호출)
+   */
+  rpc UserExists (UserExistsRequest) returns (UserExistsResponse);
+}
+
+// ==================== Request/Response Messages ====================
+
+message GetUserRequest {
+  int64 user_id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+  string error_message = 2;
+}
+
+message GetUsersRequest {
+  repeated int64 user_ids = 1;
+}
+
+message GetUsersResponse {
+  repeated User users = 1;
+  string error_message = 2;
+}
+
+message UserExistsRequest {
+  int64 user_id = 1;
+}
+
+message UserExistsResponse {
+  bool exists = 1;
+  string error_message = 2;
+}
+
+// ==================== Domain Models ====================
+
+message User {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string phone_number = 6;
+  string country = 7;
+  string city = 8;
+  string state = 9;
+  string street_address = 10;
+  string postal_code = 11;
+  string role = 12;
+  bool is_active = 13;
+  bool is_verified = 14;
+  string created_at = 15;
+  string updated_at = 16;
+  UserStatus status = 17;
+}
+
+enum UserStatus {
+  ACTIVE = 0;
+  INACTIVE = 1;
+  DELETED = 2;
+}

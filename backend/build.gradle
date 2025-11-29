@@ -1,0 +1,317 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.1.2'
+	id 'io.spring.dependency-management' version '1.1.2'
+	id 'org.asciidoctor.jvm.convert' version '3.3.2'
+	id 'com.epages.restdocs-api-spec' version '0.19.2'
+	id 'com.google.protobuf' version '0.9.4'
+	id 'jacoco'
+
+	// Static Analysis Tools
+	id 'checkstyle'
+	id 'pmd'
+	id 'com.github.spotbugs' version '6.0.7'
+	id 'net.ltgt.errorprone' version '3.1.0'
+}
+
+group = 'com.hamkkebu.ledgerservice'
+
+// Specify the main class
+springBoot {
+	mainClass = 'com.hamkkebu.ledgerservice.LedgerServiceApplication'
+}
+
+version = '0.0.1-SNAPSHOT'
+
+java {
+	sourceCompatibility = '17'
+}
+
+repositories {
+	mavenCentral()
+}
+
+configurations {
+	asciidoctorExt
+}
+
+ext {
+	snippetsDir = file('build/generated-snippets')
+}
+
+dependencies {
+	// Boilerplate Common (from submodule)
+	implementation project(':common')
+
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// Security & JWT
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
+	// Kafka
+	implementation 'org.springframework.kafka:spring-kafka'
+
+	// Redis (Rate Limiting 포함)
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	// .env 파일 로드 (로컬 개발용)
+	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
+	// gRPC (내부 서비스 간 통신)
+	implementation 'net.devh:grpc-spring-boot-starter:2.15.0.RELEASE'
+	implementation 'io.grpc:grpc-protobuf:1.58.0'
+	implementation 'io.grpc:grpc-stub:1.58.0'
+	implementation 'io.grpc:grpc-netty-shaded:1.58.0'
+	compileOnly 'org.apache.tomcat:annotations-api:6.0.53' // gRPC @Generated annotation
+
+	// Circuit Breaker (gRPC 통신 장애 대응)
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.1.0'
+	implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.1.0'
+	implementation 'io.github.resilience4j:resilience4j-timelimiter:2.1.0'
+
+	// Monitoring & Metrics
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+
+	// Swagger UI (OpenAPI 3.0)
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+
+	runtimeOnly 'com.mysql:mysql-connector-j'
+
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	compileOnly 'org.mapstruct:mapstruct:1.5.3.Final'
+	annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
+	annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.kafka:spring-kafka-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+
+	// REST Docs
+	testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+	asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor'
+
+	// REST Docs -> OpenAPI 3.0 변환
+	testImplementation 'com.epages:restdocs-api-spec-mockmvc:0.19.2'
+
+	// TestContainers
+	testImplementation 'org.testcontainers:testcontainers:1.19.0'
+	testImplementation 'org.testcontainers:mysql:1.19.0'
+	testImplementation 'org.testcontainers:kafka:1.19.0'
+	testImplementation 'org.testcontainers:junit-jupiter:1.19.0'
+
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+
+	// Static Analysis Tools
+	errorprone 'com.google.errorprone:error_prone_core:2.24.1'
+	spotbugsPlugins 'com.h3xstream.findsecbugs:findsecbugs-plugin:1.12.0'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	outputs.dir snippetsDir
+	finalizedBy jacocoTestReport
+}
+
+jacoco {
+	toolVersion = "0.8.10"
+}
+
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+		csv.required = false
+	}
+
+	afterEvaluate {
+		classDirectories.setFrom(files(classDirectories.files.collect {
+			fileTree(dir: it, exclude: [
+				// DTO & Configuration (자동 생성 또는 단순 데이터 클래스)
+				'**/data/dto/**',
+				'**/data/entity/**',
+				'**/data/event/**',
+				'**/data/mapper/**',
+				'**/config/**',
+				'**/common/dto/**',
+				'**/common/exception/**',
+				'**/common/constant/**',
+				'**/common/enums/**',
+				'**/*Application.class',
+
+				// gRPC 자동 생성 코드
+				'**/grpc/**',
+
+				// 유틸리티 (필요시 별도 테스트)
+				'**/common/util/**'
+			])
+		}))
+	}
+}
+
+// Asciidoctor 태스크
+asciidoctor {
+	inputs.dir snippetsDir
+	configurations 'asciidoctorExt'
+	dependsOn test
+}
+
+// OpenAPI 3.0 spec 설정 (restdocs-api-spec 플러그인)
+openapi3 {
+	setServer('https://api.hamkkebu.com')
+	setTitle('Hamkkebu Ledger Service API')
+	setDescription('Hamkkebu Ledger Service REST API 문서')
+	setVersion('1.0.0')
+	format = 'yaml'
+	outputDirectory = 'build/api-spec'
+}
+
+// OpenAPI spec을 static 리소스로 복사 (선택적 - 테스트에서 생성된 스펙 저장용)
+tasks.register('copyOpenApiSpec', Copy) {
+	dependsOn 'openapi3'
+	from "build/api-spec/openapi3.yaml"
+	into "src/main/resources/static/docs"
+	doLast {
+		println "OpenAPI 3.0 spec copied to: src/main/resources/static/docs/openapi3.yaml"
+	}
+}
+
+// bootJar에 문서 포함
+bootJar {
+	dependsOn asciidoctor
+	from("${asciidoctor.outputDir}") {
+		into 'static/docs'
+	}
+}
+
+// Protobuf 설정
+protobuf {
+	protoc {
+		artifact = 'com.google.protobuf:protoc:3.24.0'
+	}
+	plugins {
+		grpc {
+			artifact = 'io.grpc:protoc-gen-grpc-java:1.58.0'
+		}
+	}
+	generateProtoTasks {
+		all()*.plugins {
+			grpc {}
+		}
+	}
+}
+
+// Proto 파일 컴파일 후 생성된 소스를 source set에 추가
+sourceSets {
+	main {
+		java {
+			srcDirs 'build/generated/source/proto/main/grpc'
+			srcDirs 'build/generated/source/proto/main/java'
+		}
+	}
+}
+
+// ========== Static Analysis Configuration ==========
+
+// Checkstyle: 코딩 스타일 체크
+checkstyle {
+	toolVersion = '10.12.5'
+	ignoreFailures = true
+	showViolations = true
+}
+
+checkstyleMain {
+	source = 'src/main/java'
+	exclude '**/grpc/**', '**/proto/**'
+}
+
+checkstyleTest {
+	source = 'src/test/java'
+}
+
+// PMD: 코드 품질 및 베스트 프랙티스 체크
+pmd {
+	toolVersion = '6.55.0'
+	consoleOutput = true
+	ruleSets = []
+	ignoreFailures = true
+}
+
+pmdMain {
+	source = 'src/main/java'
+	exclude '**/grpc/**', '**/proto/**'
+}
+
+pmdTest {
+	source = 'src/test/java'
+}
+
+// SpotBugs: 버그 패턴 검출 + 보안 취약점 검출
+spotbugs {
+	toolVersion = '4.8.3'
+	ignoreFailures = true
+}
+
+spotbugsMain {
+	reports {
+		html {
+			required = true
+			outputLocation = file("${buildDir}/reports/spotbugs/main/spotbugs.html")
+			stylesheet = 'fancy-hist.xsl'
+		}
+		xml {
+			required = false
+		}
+	}
+}
+
+spotbugsTest {
+	reports {
+		html {
+			required = true
+			outputLocation = file("${buildDir}/reports/spotbugs/test/spotbugs.html")
+			stylesheet = 'fancy-hist.xsl'
+		}
+	}
+}
+
+// Error Prone: 컴파일 타임 버그 검출
+tasks.withType(JavaCompile).configureEach {
+	options.errorprone {
+		// Lombok과 MapStruct 호환성 문제 해결
+		disableWarningsInGeneratedCode = true
+		excludedPaths = '.*/build/generated/.*'
+
+		// 심각한 버그만 에러로 처리
+		error(
+			'DeadException',
+			'MissingOverride'
+		)
+
+		// 경고 레벨
+		warn(
+			'JavaTimeDefaultTimeZone',
+			'UnusedVariable',
+			'UnusedMethod'
+		)
+
+		// Lombok/MapStruct 충돌 방지
+		disable(
+			'MissingSummary',
+			'UnusedTypeParameter'
+		)
+	}
+}
+
+// check 태스크에 모든 정적 분석 도구 포함
+check.dependsOn checkstyleMain, checkstyleTest, pmdMain, pmdTest, spotbugsMain

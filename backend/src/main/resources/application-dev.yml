@@ -1,0 +1,137 @@
+# 개발 환경 설정 (Development Profile)
+# 활성화: --spring.profiles.active=dev 또는 SPRING_PROFILES_ACTIVE=dev
+
+server:
+  # ledger-service는 8082 포트 사용 (auth: 8081, boilerplate: 8080)
+  port: 8082
+
+spring:
+  application:
+    name: ledger-service-dev
+
+  datasource:
+    # Ledger Service는 3308 포트 사용 (Auth: 3307, Boilerplate: 3306)
+    url: jdbc:mysql://localhost:3308/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+        use_sql_comments: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ledger-service-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.hamkkebu.ledgerservice.*,com.hamkkebu.boilerplate.*"
+
+  # Redis 설정 (boilerplate의 Redis 컨테이너 사용)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Kafka 토픽 설정
+kafka:
+  topics:
+    ledger-events: ledger.events
+
+# JWT 설정 (토큰 검증용 - auth-service와 동일한 secret 사용)
+jwt:
+  secret: ThisIsADevelopmentSecretKeyPleaseChangeInProductionAtLeast64Characters
+
+# gRPC 서버 설정
+grpc:
+  server:
+    # ledger-service gRPC는 9093 포트 사용 (9092는 Kafka가 사용)
+    port: 9093
+    max-inbound-message-size: 4194304
+    max-inbound-metadata-size: 8192
+
+# Actuator 개발 환경 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: false
+
+# 로깅 설정 (개발 환경)
+logging:
+  level:
+    com.hamkkebu.ledgerservice: DEBUG
+    com.hamkkebu.boilerplate: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.apache.kafka: INFO
+    org.springframework.kafka: DEBUG
+
+# CORS 개발 환경 설정
+cors:
+  allowed-origins:
+    - "http://localhost:3000"
+    - "http://localhost:3001"
+    - "http://localhost:3002"
+    - "http://localhost:8080"
+    - "http://localhost:8081"
+    - "http://localhost:8082"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:3001"
+    - "http://127.0.0.1:3002"
+    - "http://127.0.0.1:8080"
+    - "http://127.0.0.1:8081"
+    - "http://127.0.0.1:8082"
+
+# SpringDoc OpenAPI (Swagger) 설정
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    doc-expansion: none
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+    deep-linking: true
+    try-it-out-enabled: true
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  group-configs:
+    - group: ledger-service
+      paths-to-match: /api/v1/**
+      packages-to-scan: com.hamkkebu.ledgerservice
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json

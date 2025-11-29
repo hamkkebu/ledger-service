@@ -1,0 +1,86 @@
+services:
+  database:
+    image: mysql:8.0
+    platform: linux/amd64
+    container_name: hamkkebu-ledger-service-db
+    ports:
+      # Ledger Service는 MySQL 3308 포트 사용 (Auth: 3307, Boilerplate: 3306)
+      # SECURITY: 포트를 127.0.0.1로 바인딩 (외부 접근 차단)
+      - "127.0.0.1:${DB_PORT:-3308}:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root}
+      - MYSQL_DATABASE=${DB_NAME:-hamkkebu_ledger}
+    command:
+      - --innodb-use-native-aio=0
+      - --innodb-flush-method=fsync
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./backend/src/main/resources/data.sql:/docker-entrypoint-initdb.d/2-data.sql
+    networks:
+      - hamkkebu-ledger-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: hamkkebu-ledger-service-backend
+    ports:
+      # ledger-service는 8082 포트 사용 (auth: 8081, boilerplate: 8080)
+      - "${BACKEND_PORT:-8082}:8082"
+      # gRPC 포트 (ledger: 9093, auth: 9091, boilerplate: 9090) - 9092는 Kafka가 사용
+      - "${GRPC_PORT:-9093}:9093"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      # 개발 프로필 활성화 (포트 설정 적용)
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/${DB_NAME:-hamkkebu_ledger}?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      JWT_SECRET: ${JWT_SECRET:-ThisIsADevelopmentSecretKeyPleaseChangeInProductionAtLeast64Characters}
+      # Boilerplate의 Redis 컨테이너 사용 (hamkkebu-network에서 연결)
+      REDIS_HOST: hamkkebu-boilerplate-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-devRedisPassword123!}
+      # Boilerplate의 Kafka 컨테이너 사용 (hamkkebu-network 내부 리스너 사용)
+      KAFKA_BOOTSTRAP_SERVERS: hamkkebu-boilerplate-kafka:29092
+      # Auth Service gRPC 주소 (host.docker.internal을 통해 접근)
+      AUTH_SERVICE_GRPC_ADDRESS: static://host.docker.internal:9091
+      # Keycloak SSO 설정 (Docker 컨테이너에서 호스트 머신 접근)
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://host.docker.internal:8180/realms/hamkkebu
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://host.docker.internal:8180/realms/hamkkebu/protocol/openid-connect/certs
+    restart: always
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - hamkkebu-ledger-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hamkkebu-ledger-service-frontend
+    ports:
+      # Ledger Service Frontend는 3002 포트 사용 (Auth: 3001, Boilerplate: 3000)
+      - "${FRONTEND_PORT:-3002}:80"
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - hamkkebu-ledger-network
+
+networks:
+  hamkkebu-ledger-network:
+    name: hamkkebu-infra
+    external: true
+
+volumes:
+  mysql-data:

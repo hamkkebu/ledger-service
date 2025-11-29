@@ -1,0 +1,5 @@
+rootProject.name = 'ledger-service'
+
+// Include common module from boilerplate submodule
+include 'common'
+project(':common').projectDir = file('../common/backend')

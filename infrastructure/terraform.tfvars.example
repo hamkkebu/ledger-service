@@ -1,0 +1,15 @@
+# Terraform variables for ledger-service
+# Copy this file to terraform.tfvars and update with actual values
+
+aws_region             = "ap-northeast-2"
+project_name           = "hamkkebu"
+environment            = "dev"
+terraform_state_bucket = "hamkkebu-terraform-state"
+ecr_repository_url     = "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/hamkkebu/ledger-service"
+image_tag              = "latest"
+container_port         = 8082
+task_cpu               = "512"
+task_memory            = "1024"
+desired_count          = 2
+min_capacity           = 1
+max_capacity           = 4
