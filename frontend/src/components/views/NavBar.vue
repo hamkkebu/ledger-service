@@ -15,7 +15,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, computed, onMounted } from 'vue';
+import { defineComponent, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 
@@ -23,7 +23,7 @@ export default defineComponent({
   name: 'NavBar',
   setup() {
     const router = useRouter();
-    const { currentUser, isAuthenticated, restoreAuth, logout: authLogout } = useAuth();
+    const { currentUser, isAuthenticated, logout: authLogout } = useAuth();
 
     const username = computed(() => currentUser.value?.username || '');
 
@@ -33,10 +33,6 @@ export default defineComponent({
         router.push('/');
       }
     };
-
-    onMounted(() => {
-      restoreAuth();
-    });
 
     return {
       isAuthenticated,

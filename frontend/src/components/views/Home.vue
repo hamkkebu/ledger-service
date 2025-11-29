@@ -35,17 +35,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted } from 'vue';
+import { defineComponent } from 'vue';
 import { useAuth } from '@/composables/useAuth';
 
 export default defineComponent({
   name: 'HomePage',
   setup() {
-    const { isAuthenticated, restoreAuth } = useAuth();
-
-    onMounted(() => {
-      restoreAuth();
-    });
+    const { isAuthenticated } = useAuth();
 
     return {
       isAuthenticated,

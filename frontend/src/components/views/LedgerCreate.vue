@@ -163,7 +163,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted } from 'vue';
+import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 import ledgerApi from '@/api/ledgerApi';
@@ -173,7 +173,7 @@ export default defineComponent({
   name: 'LedgerCreate',
   setup() {
     const router = useRouter();
-    const { isAuthenticated, restoreAuth } = useAuth();
+    const { isAuthenticated } = useAuth();
 
     const submitting = ref(false);
     const error = ref<string | null>(null);
@@ -216,10 +216,6 @@ export default defineComponent({
         submitting.value = false;
       }
     };
-
-    onMounted(() => {
-      restoreAuth();
-    });
 
     return {
       isAuthenticated,

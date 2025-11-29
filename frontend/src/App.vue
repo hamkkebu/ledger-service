@@ -6,41 +6,13 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { defineComponent } from 'vue';
 import NavBar from '@/components/views/NavBar.vue';
-import { useAuth } from '@/composables/useAuth';
 
 export default defineComponent({
   name: 'App',
   components: {
     NavBar,
-  },
-  setup() {
-    const router = useRouter();
-    const { setAuth } = useAuth();
-
-    onMounted(() => {
-      // URL 파라미터에서 토큰과 사용자 정보 확인
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      const userStr = urlParams.get('user');
-
-      if (token && userStr) {
-        try {
-          const user = JSON.parse(decodeURIComponent(userStr));
-          setAuth(token, user);
-
-          // URL에서 파라미터 제거 (보안을 위해)
-          const cleanUrl = window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-        } catch (e) {
-          console.error('Failed to parse user info from URL:', e);
-        }
-      }
-    });
-
-    return {};
   },
 });
 </script>

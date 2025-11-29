@@ -211,7 +211,7 @@ export default defineComponent({
   name: 'LedgerDashboard',
   setup() {
     const router = useRouter();
-    const { isAuthenticated, restoreAuth } = useAuth();
+    const { isAuthenticated } = useAuth();
 
     const summary = ref<LedgerSummary | null>(null);
     const loading = ref(true);
@@ -332,7 +332,6 @@ export default defineComponent({
     };
 
     onMounted(() => {
-      restoreAuth();
       if (isAuthenticated.value) {
         fetchSummary();
       } else {
