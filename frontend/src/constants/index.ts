@@ -1,5 +1,5 @@
 /**
- * 애플리케이션 상수 정의
+ * 애플리케이션 상수 정의 - Ledger Service
  */
 
 /**
@@ -9,18 +9,7 @@ export const API_ENDPOINTS = {
   // Ledger 관련
   LEDGERS: '/api/v1/ledgers',
   LEDGER_BY_ID: (id: number) => `/api/v1/ledgers/${id}`,
-  LEDGER_SUMMARY: (id: number) => `/api/v1/ledgers/${id}/summary`,
-
-  // Transaction 관련
-  TRANSACTIONS: '/api/v1/transactions',
-  TRANSACTION_BY_ID: (id: number) => `/api/v1/transactions/${id}`,
-
-  // 인증 관련 (auth-service)
-  AUTH: {
-    LOGOUT: '/api/v1/auth/logout',
-    REFRESH: '/api/v1/auth/refresh',
-    VALIDATE: '/api/v1/auth/validate',
-  },
+  LEDGER_SUMMARY: '/api/v1/ledgers/summary',
 } as const;
 
 /**
@@ -31,7 +20,6 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   LEDGER_CREATE: '/create',
   LEDGER_DETAIL: (id: number) => `/ledger/${id}`,
-  LOGIN: '/login',
 } as const;
 
 /**
@@ -43,13 +31,17 @@ export const ERROR_MESSAGES = {
   UNAUTHORIZED: '인증이 필요합니다. 다시 로그인해주세요.',
   FORBIDDEN: '접근 권한이 없습니다.',
   NOT_FOUND: '요청한 리소스를 찾을 수 없습니다.',
+  BAD_REQUEST: '잘못된 요청입니다.',
+  UNKNOWN_ERROR: '알 수 없는 오류가 발생했습니다.',
+  VALIDATION_ERROR: '입력값을 확인해주세요.',
 } as const;
 
 /**
- * 로컬 스토리지 키
+ * 성공 메시지
  */
-export const STORAGE_KEYS = {
-  AUTH_TOKEN: 'authToken',
-  REFRESH_TOKEN: 'refreshToken',
-  CURRENT_USER: 'currentUser',
+export const SUCCESS_MESSAGES = {
+  CREATE_SUCCESS: '가계부가 생성되었습니다.',
+  UPDATE_SUCCESS: '정보가 성공적으로 수정되었습니다.',
+  DELETE_SUCCESS: '삭제가 완료되었습니다.',
+  SAVE_SUCCESS: '저장되었습니다.',
 } as const;

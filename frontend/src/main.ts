@@ -12,9 +12,14 @@ app.use(router);
 // Axios 인스턴스를 전역 속성으로 등록
 app.config.globalProperties.axios = apiClient;
 
-// 저장된 인증 정보 복원
-const { restoreAuth } = useAuth();
-restoreAuth();
+// 앱 마운트 전에 Keycloak 인증 초기화 수행
+// 라우터 가드가 실행되기 전에 인증 상태가 복원되어야 함
+const { initAuth } = useAuth();
 
-// 앱 마운트
-app.mount('#app');
+initAuth()
+  .catch((error) => {
+    console.error('Auth initialization failed:', error);
+  })
+  .finally(() => {
+    app.mount('#app');
+  });

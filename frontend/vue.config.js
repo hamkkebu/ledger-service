@@ -1,6 +1,15 @@
 const { defineConfig } = require('@vue/cli-service')
+const path = require('path')
+
 module.exports = defineConfig({
   transpileDependencies: true,
+  configureWebpack: {
+    resolve: {
+      alias: {
+        '@common': path.resolve(__dirname, 'common/frontend/src')
+      }
+    }
+  },
   devServer: {
     // History API fallback for SPA routing
     historyApiFallback: true,

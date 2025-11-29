@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { useAuth } from '@/composables/useAuth';
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -30,12 +31,12 @@ const router = createRouter({
   routes,
 });
 
-// 인증 가드
+// 인증 가드 - Keycloak 기반
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('authToken');
+  const { isAuthenticated } = useAuth();
 
-  if (to.meta.requiresAuth && !token) {
-    // 인증이 필요한 페이지 접근 시 홈으로 리다이렉트
+  if (to.meta.requiresAuth && !isAuthenticated.value) {
+    // 인증이 필요한 페이지 접근 시 Home으로 리다이렉트
     next({ name: 'Home' });
     return;
   }

@@ -65,8 +65,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: hamkkebu-ledger-service-frontend
     ports:
       # Ledger Service Frontend는 3002 포트 사용 (Auth: 3001, Boilerplate: 3000)
