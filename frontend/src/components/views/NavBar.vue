@@ -16,21 +16,19 @@
 
 <script lang="ts">
 import { defineComponent, computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
 
 export default defineComponent({
   name: 'NavBar',
   setup() {
-    const router = useRouter();
     const { currentUser, isAuthenticated, logout: authLogout } = useAuth();
 
     const username = computed(() => currentUser.value?.username || '');
 
     const handleLogout = async () => {
       if (confirm('로그아웃 하시겠습니까?')) {
+        // Keycloak SSO 로그아웃 - 자동으로 리다이렉트됨
         await authLogout();
-        router.push('/');
       }
     };
 

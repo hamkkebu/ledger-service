@@ -4,17 +4,18 @@ import { useAuth } from '@/composables/useAuth';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/home',
+    redirect: '/dashboard',
   },
   {
     path: '/home',
     name: 'Home',
-    component: () => import('@/components/views/Home.vue'),
+    redirect: '/dashboard',
   },
   {
     path: '/create',
     name: 'LedgerCreate',
     component: () => import('@/components/views/LedgerCreate.vue'),
+    meta: { requiresAuth: true },
   },
   {
     path: '/dashboard',
@@ -35,14 +36,26 @@ const router = createRouter({
   routes,
 });
 
-// 인증 가드 - Keycloak 기반
-router.beforeEach((to, from, next) => {
-  const { isAuthenticated } = useAuth();
+/**
+ * 라우터 가드: Keycloak SSO 기반 인증 확인
+ */
+router.beforeEach(async (to, from, next) => {
+  const { isAuthenticated, login, initAuth, isInitialized } = useAuth();
 
-  if (to.meta.requiresAuth && !isAuthenticated.value) {
-    // 인증이 필요한 페이지 접근 시 Home으로 리다이렉트
-    next({ name: 'Home' });
-    return;
+  // 초기화가 안 되어 있으면 초기화
+  if (!isInitialized.value) {
+    await initAuth();
+  }
+
+  const requiresAuth = to.meta.requiresAuth;
+
+  // 인증이 필요한 페이지인 경우
+  if (requiresAuth) {
+    if (!isAuthenticated.value) {
+      // Keycloak 로그인 페이지로 리다이렉트
+      login(window.location.origin + to.fullPath);
+      return;
+    }
   }
 
   next();
