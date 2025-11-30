@@ -4,6 +4,10 @@ import { useAuth } from '@/composables/useAuth';
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
+    redirect: '/home',
+  },
+  {
+    path: '/home',
     name: 'Home',
     component: () => import('@/components/views/Home.vue'),
   },
