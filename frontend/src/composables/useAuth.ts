@@ -86,13 +86,17 @@ export function useAuth() {
     // 레거시 데이터 정리 (보안 강화)
     localStorage.removeItem('currentUser');
 
-    // 1. URL 파라미터에서 토큰 확인 (크로스 도메인 인증)
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    const urlRefreshToken = urlParams.get('refreshToken');
+    // 1. URL Fragment에서 토큰 확인 (크로스 도메인 인증)
+    // Fragment(#)는 서버로 전송되지 않으므로 쿼리스트링보다 안전
+    // - 서버 로그에 기록되지 않음
+    // - Referer 헤더에 포함되지 않음
+    const hash = window.location.hash.substring(1); // # 제거
+    const fragmentParams = new URLSearchParams(hash);
+    const urlToken = fragmentParams.get('token');
+    const urlRefreshToken = fragmentParams.get('refreshToken');
 
     if (urlToken) {
-      // URL 파라미터에서 토큰을 받은 경우 localStorage에 저장하고 URL 정리
+      // URL Fragment에서 토큰을 받은 경우 localStorage에 저장하고 URL 정리
       token.value = urlToken;
       refreshToken.value = urlRefreshToken;
 
@@ -101,8 +105,8 @@ export function useAuth() {
         localStorage.setItem('refreshToken', urlRefreshToken);
       }
 
-      // URL에서 토큰 파라미터 제거 (보안 및 UX)
-      const cleanUrl = window.location.pathname;
+      // URL에서 토큰 Fragment 제거 (보안 및 UX)
+      const cleanUrl = window.location.pathname + window.location.search;
       window.history.replaceState({}, document.title, cleanUrl);
 
       // 토큰 유효성 검증
