@@ -33,7 +33,12 @@ apiClient.interceptors.request.use(
     let token: string | null = null;
 
     if (tokenProvider) {
-      token = await tokenProvider();
+      try {
+        token = await tokenProvider();
+      } catch (error) {
+        // 인증되지 않은 상태에서 토큰 요청 시 에러 무시 (공개 API 호출 허용)
+        console.debug('[API] Token not available (unauthenticated request)');
+      }
     }
 
     if (token && config.headers) {
