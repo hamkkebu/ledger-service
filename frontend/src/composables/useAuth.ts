@@ -27,10 +27,44 @@ interface AuthUser {
 /**
  * 인증 상태 (싱글톤)
  */
-const currentUser = ref<AuthUser | null>(null);
 const token = ref<string | null>(null);
 const refreshToken = ref<string | null>(null);
-const isAuthenticated = computed(() => currentUser.value !== null && token.value !== null);
+
+/**
+ * JWT 토큰에서 사용자 정보 추출
+ * localStorage에 별도 저장하지 않고 토큰에서 직접 파싱
+ */
+const parseUserFromToken = (tokenStr: string): AuthUser | null => {
+  try {
+    const payload = JSON.parse(atob(tokenStr.split('.')[1]));
+    const realmAccess = payload.realm_access as { roles?: string[] } | undefined;
+    const roles = realmAccess?.roles || [];
+
+    return {
+      id: 0,
+      username: payload.preferred_username || '',
+      email: payload.email || '',
+      firstName: payload.given_name || '',
+      lastName: payload.family_name || '',
+      role: roles.includes('ADMIN') ? 'ADMIN' :
+            roles.includes('DEVELOPER') ? 'DEVELOPER' : 'USER',
+      isActive: true,
+      isVerified: true,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 현재 사용자 정보 (토큰에서 실시간 파싱)
+ */
+const currentUser = computed<AuthUser | null>(() => {
+  if (!token.value) return null;
+  return parseUserFromToken(token.value);
+});
+
+const isAuthenticated = computed(() => token.value !== null && currentUser.value !== null);
 
 /**
  * 인증 상태 관리 Composable
@@ -42,36 +76,37 @@ const isAuthenticated = computed(() => currentUser.value !== null && token.value
 export function useAuth() {
   /**
    * 인증 초기화
-   * localStorage에서 토큰 복원
+   * localStorage에서 토큰 복원 (사용자 정보는 토큰에서 파싱)
    */
   const initAuth = async (): Promise<boolean> => {
     // API 클라이언트에 토큰 제공자 설정
     setTokenProvider(() => Promise.resolve(token.value));
 
-    // localStorage에서 토큰 복원
+    // localStorage에서 토큰만 복원 (currentUser는 토큰에서 파싱)
     const savedToken = localStorage.getItem('authToken');
     const savedRefreshToken = localStorage.getItem('refreshToken');
-    const savedUser = localStorage.getItem('currentUser');
 
-    if (savedToken && savedUser) {
+    // 레거시 데이터 정리 (보안 강화)
+    localStorage.removeItem('currentUser');
+
+    if (savedToken) {
       token.value = savedToken;
       refreshToken.value = savedRefreshToken;
 
-      try {
-        currentUser.value = JSON.parse(savedUser);
-
-        // 토큰 유효성 검증 (만료 체크)
-        if (isTokenExpired(savedToken)) {
-          // 토큰 만료 시 갱신 시도
-          const refreshed = await refreshTokens();
-          if (!refreshed) {
-            clearAuthState();
-            return false;
-          }
+      // 토큰 유효성 검증 (만료 체크)
+      if (isTokenExpired(savedToken)) {
+        // 토큰 만료 시 갱신 시도
+        const refreshed = await refreshTokens();
+        if (!refreshed) {
+          clearAuthState();
+          return false;
         }
+      }
 
+      // 토큰에서 사용자 정보 파싱 가능한지 확인
+      if (currentUser.value) {
         return true;
-      } catch {
+      } else {
         clearAuthState();
         return false;
       }
@@ -130,31 +165,13 @@ export function useAuth() {
 
       const tokenData = await response.json();
 
-      // 토큰 저장
+      // 토큰 저장 (currentUser는 토큰에서 자동 파싱됨)
       token.value = tokenData.access_token;
       refreshToken.value = tokenData.refresh_token;
 
-      // 토큰에서 사용자 정보 추출
-      const payload = JSON.parse(atob(tokenData.access_token.split('.')[1]));
-      const realmAccess = payload.realm_access as { roles?: string[] } | undefined;
-      const roles = realmAccess?.roles || [];
-
-      currentUser.value = {
-        id: 0,
-        username: payload.preferred_username || '',
-        email: payload.email || '',
-        firstName: payload.given_name || '',
-        lastName: payload.family_name || '',
-        role: roles.includes('ADMIN') ? 'ADMIN' :
-              roles.includes('DEVELOPER') ? 'DEVELOPER' : 'USER',
-        isActive: true,
-        isVerified: true,
-      };
-
-      // localStorage에 저장
+      // localStorage에 토큰만 저장 (보안: currentUser는 저장하지 않음)
       localStorage.setItem('authToken', tokenData.access_token);
       localStorage.setItem('refreshToken', tokenData.refresh_token);
-      localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
 
       // API 클라이언트에 토큰 제공자 설정
       setTokenProvider(() => Promise.resolve(token.value));
@@ -261,13 +278,12 @@ export function useAuth() {
    * 인증 상태 초기화
    */
   const clearAuthState = (): void => {
-    currentUser.value = null;
     token.value = null;
     refreshToken.value = null;
 
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem('currentUser'); // 레거시 데이터 정리
   };
 
   /**
