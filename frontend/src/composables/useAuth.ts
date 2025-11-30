@@ -14,6 +14,11 @@ const isInitialized = ref(false);
 const isAuthenticatedRef = ref(false);
 
 /**
+ * 초기화 진행 중인 Promise (중복 호출 방지)
+ */
+let initPromise: Promise<boolean> | null = null;
+
+/**
  * 인증 관련 사용자 정보 타입
  */
 interface AuthUser {
@@ -94,12 +99,37 @@ export function useAuth() {
   const keycloak = createKeycloakInstance();
 
   /**
+   * Keycloak 콜백 URL인지 확인
+   */
+  const isCallbackUrl = (): boolean => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    return hash.includes('code=') || search.includes('code=');
+  };
+
+  /**
+   * 콜백 파라미터 정리 (URL에서 hash 제거)
+   */
+  const cleanupCallbackUrl = (): void => {
+    if (window.location.hash && window.location.hash.includes('state=')) {
+      const cleanPath = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanPath);
+    }
+  };
+
+  /**
    * 인증 초기화
    * Keycloak SSO 세션 확인 및 토큰 갱신
    */
   const initAuth = async (): Promise<boolean> => {
+    // 이미 초기화됨
     if (isInitialized.value) {
       return keycloak.authenticated === true;
+    }
+
+    // 초기화 진행 중이면 기존 Promise 반환 (중복 호출 방지)
+    if (initPromise) {
+      return initPromise;
     }
 
     // 레거시 데이터 정리 (localStorage 사용하던 데이터)
@@ -107,33 +137,56 @@ export function useAuth() {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('currentUser');
 
-    try {
-      // check-sso: 로그인 페이지로 리다이렉트하지 않고 SSO 세션만 확인
-      const authenticated = await keycloak.init({
-        onLoad: 'check-sso',
-        silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
-        checkLoginIframe: false,
-        pkceMethod: 'S256',
-      });
+    const hasCallback = isCallbackUrl();
 
-      isInitialized.value = true;
-      isAuthenticatedRef.value = authenticated;
+    // 초기화 Promise 생성 및 저장
+    initPromise = (async () => {
+      try {
+        // 콜백 URL이 있으면 silentCheckSso를 사용하지 않음 (충돌 방지)
+        const initOptions = hasCallback ? {
+          checkLoginIframe: false,
+          pkceMethod: 'S256' as const,
+        } : {
+          onLoad: 'check-sso' as const,
+          silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
+          checkLoginIframe: false,
+          pkceMethod: 'S256' as const,
+        };
 
-      if (authenticated) {
-        // API 클라이언트에 토큰 제공자 설정
-        setTokenProvider(() => getToken());
+        const authenticated = await keycloak.init(initOptions);
 
-        // 토큰 자동 갱신 설정
-        setupTokenRefresh();
+        isInitialized.value = true;
+        isAuthenticatedRef.value = authenticated;
+
+        if (authenticated) {
+          // API 클라이언트에 토큰 제공자 설정
+          setTokenProvider(() => getToken());
+
+          // 토큰 자동 갱신 설정
+          setupTokenRefresh();
+
+          // 콜백 URL 정리
+          if (hasCallback) {
+            cleanupCallbackUrl();
+          }
+        }
+
+        return authenticated;
+      } catch (error) {
+        console.error('Keycloak init failed:', error);
+        isInitialized.value = true;
+        isAuthenticatedRef.value = false;
+
+        // 콜백 URL 정리 (실패 시에도)
+        if (hasCallback) {
+          cleanupCallbackUrl();
+        }
+
+        return false;
       }
+    })();
 
-      return authenticated;
-    } catch (error) {
-      console.error('Keycloak init failed:', error);
-      isInitialized.value = true;
-      isAuthenticatedRef.value = false;
-      return false;
-    }
+    return initPromise;
   };
 
   /**
