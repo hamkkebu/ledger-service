@@ -4,10 +4,14 @@ WORKDIR /app
 # common 서브모듈 복사
 COPY common/frontend ./common/frontend
 
-# frontend 복사
+# frontend 복사 (node_modules 제외를 위해 개별 복사)
 COPY frontend/package*.json ./
 RUN npm install
-COPY frontend/ .
+
+# 소스 코드만 복사 (node_modules, dist 제외)
+COPY frontend/src ./src
+COPY frontend/public ./public
+COPY frontend/babel.config.js frontend/tsconfig.json frontend/vue.config.js ./
 
 RUN npm run build
 
