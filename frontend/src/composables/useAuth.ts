@@ -294,9 +294,10 @@ export function useAuth() {
     if (redirectUri) {
       window.location.href = redirectUri;
     } else {
-      // auth-service 로그인 페이지로 리다이렉트
+      // auth-service 로그아웃 페이지로 리다이렉트 (크로스 도메인 로그아웃)
+      // auth-service의 localStorage도 함께 정리됨
       const authServiceUrl = process.env.VUE_APP_AUTH_SERVICE_URL || 'http://localhost:3001';
-      window.location.href = `${authServiceUrl}/login`;
+      window.location.href = `${authServiceUrl}/logout`;
     }
   };
 
