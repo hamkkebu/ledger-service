@@ -76,18 +76,44 @@ const isAuthenticated = computed(() => token.value !== null && currentUser.value
 export function useAuth() {
   /**
    * 인증 초기화
-   * localStorage에서 토큰 복원 (사용자 정보는 토큰에서 파싱)
+   * URL 파라미터 또는 localStorage에서 토큰 복원 (사용자 정보는 토큰에서 파싱)
+   * 크로스 도메인 인증: auth-service에서 전달된 토큰을 URL 파라미터로 수신
    */
   const initAuth = async (): Promise<boolean> => {
     // API 클라이언트에 토큰 제공자 설정
     setTokenProvider(() => Promise.resolve(token.value));
 
-    // localStorage에서 토큰만 복원 (currentUser는 토큰에서 파싱)
-    const savedToken = localStorage.getItem('authToken');
-    const savedRefreshToken = localStorage.getItem('refreshToken');
-
     // 레거시 데이터 정리 (보안 강화)
     localStorage.removeItem('currentUser');
+
+    // 1. URL 파라미터에서 토큰 확인 (크로스 도메인 인증)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    const urlRefreshToken = urlParams.get('refreshToken');
+
+    if (urlToken) {
+      // URL 파라미터에서 토큰을 받은 경우 localStorage에 저장하고 URL 정리
+      token.value = urlToken;
+      refreshToken.value = urlRefreshToken;
+
+      localStorage.setItem('authToken', urlToken);
+      if (urlRefreshToken) {
+        localStorage.setItem('refreshToken', urlRefreshToken);
+      }
+
+      // URL에서 토큰 파라미터 제거 (보안 및 UX)
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+
+      // 토큰 유효성 검증
+      if (!isTokenExpired(urlToken) && currentUser.value) {
+        return true;
+      }
+    }
+
+    // 2. localStorage에서 토큰 복원
+    const savedToken = localStorage.getItem('authToken');
+    const savedRefreshToken = localStorage.getItem('refreshToken');
 
     if (savedToken) {
       token.value = savedToken;
