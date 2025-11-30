@@ -12,8 +12,8 @@ DROP TABLE IF EXISTS tbl_outbox_event;
 -- Create users table (auth-service에서 동기화)
 CREATE TABLE users (
     user_id BIGINT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    email VARCHAR(100) NOT NULL UNIQUE,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
     nickname VARCHAR(50),
