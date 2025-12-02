@@ -1,7 +1,6 @@
--- Admin account for development environment
--- This admin account is automatically created on application startup
--- user_id must match auth-service's admin user_id
+-- No seed data for users table
+-- Users are synced from auth-service via Kafka events (USER_REGISTERED)
+-- When auth-service starts, it publishes USER_REGISTERED events from tbl_outbox_event
+-- ledger-service's UserEventConsumer receives the event and syncs users via gRPC
 
-INSERT INTO users (user_id, username, email, first_name, last_name, is_active, role, is_deleted, created_at, updated_at)
-SELECT 1, 'admin', 'admin@hamkkebu.com', 'Admin', 'User', TRUE, 'ADMIN', FALSE, NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
+SELECT 1;

@@ -15,7 +15,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 }, excludeFilters = {
 	@ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
 		com.hamkkebu.boilerplate.common.scheduler.OutboxEventScheduler.class,
-		com.hamkkebu.boilerplate.common.publisher.OutboxEventPublisher.class
+		com.hamkkebu.boilerplate.common.publisher.OutboxEventPublisher.class,
+		com.hamkkebu.boilerplate.common.config.KafkaConfig.class
 	})
 })
 public class LedgerServiceApplication {

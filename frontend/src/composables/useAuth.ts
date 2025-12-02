@@ -104,14 +104,21 @@ export function useAuth() {
   const isCallbackUrl = (): boolean => {
     const hash = window.location.hash;
     const search = window.location.search;
-    return hash.includes('code=') || search.includes('code=');
+    return hash.includes('code=') || hash.includes('state=') ||
+           search.includes('code=') || search.includes('state=');
   };
 
   /**
-   * 콜백 파라미터 정리 (URL에서 hash 제거)
+   * 콜백 파라미터 정리 (URL에서 OAuth 파라미터 제거)
    */
   const cleanupCallbackUrl = (): void => {
-    if (window.location.hash && window.location.hash.includes('state=')) {
+    const hash = window.location.hash;
+    const search = window.location.search;
+
+    // hash나 search에 OAuth 파라미터가 있으면 정리
+    if (hash.includes('code=') || hash.includes('state=') ||
+        hash.includes('session_state=') || hash.includes('iss=') ||
+        search.includes('code=') || search.includes('state=')) {
       const cleanPath = window.location.pathname;
       window.history.replaceState({}, document.title, cleanPath);
     }
@@ -158,17 +165,17 @@ export function useAuth() {
         isInitialized.value = true;
         isAuthenticatedRef.value = authenticated;
 
+        // 콜백 URL 정리 (인증 성공 여부와 관계없이 항상 정리)
+        if (hasCallback) {
+          cleanupCallbackUrl();
+        }
+
         if (authenticated) {
           // API 클라이언트에 토큰 제공자 설정
           setTokenProvider(() => getToken());
 
           // 토큰 자동 갱신 설정
           setupTokenRefresh();
-
-          // 콜백 URL 정리
-          if (hasCallback) {
-            cleanupCallbackUrl();
-          }
         }
 
         return authenticated;

@@ -1,13 +1,11 @@
 <template>
   <nav class="navbar glass">
     <div class="navbar-brand">
-      <router-link to="/" class="brand-link">
-        <span class="gradient-text">함께부</span>
-      </router-link>
+      <span class="gradient-text">함께부</span>
     </div>
     <div v-if="isAuthenticated" class="navbar-menu">
-      <router-link to="/" class="nav-link">홈</router-link>
       <router-link to="/dashboard" class="nav-link">대시보드</router-link>
+      <a href="http://localhost:3001/userinfo" class="nav-link">내 정보</a>
       <span class="user-info">{{ username }}</span>
       <button @click="logout" class="nav-link logout-btn">로그아웃</button>
     </div>
@@ -55,10 +53,6 @@ export default defineComponent({
 .navbar-brand {
   font-size: 1.5rem;
   font-weight: 700;
-}
-
-.brand-link {
-  text-decoration: none;
 }
 
 .navbar-menu {

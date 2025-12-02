@@ -37,7 +37,11 @@ public class KafkaConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-        JsonDeserializer<Map<String, Object>> deserializer = new JsonDeserializer<>();
+        // StringSerializer로 보낸 JSON을 Map으로 역직렬화
+        // 타입 헤더가 없으므로 기본 타입을 지정해야 함
+        JsonDeserializer<Map<String, Object>> deserializer = new JsonDeserializer<>(
+            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
+        );
         deserializer.addTrustedPackages("*");
         deserializer.setUseTypeHeaders(false);
 

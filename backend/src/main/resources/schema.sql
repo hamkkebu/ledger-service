@@ -114,6 +114,7 @@ CREATE TABLE tbl_outbox_event (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     published_at DATETIME,
     last_retry_at DATETIME,
+    version BIGINT DEFAULT 0,
     INDEX idx_status_created (status, created_at),
     INDEX idx_event_id (event_id),
     INDEX idx_topic (topic)
