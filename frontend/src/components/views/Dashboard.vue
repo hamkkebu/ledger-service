@@ -123,14 +123,6 @@
               <span class="currency-badge">{{ ledger.currency }}</span>
             </div>
 
-            <div class="ledger-actions">
-              <button @click.stop="editLedger(ledger)" class="btn-icon" title="수정">
-                ✏️
-              </button>
-              <button @click.stop="confirmDelete(ledger)" class="btn-icon" title="삭제">
-                🗑️
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -585,33 +577,6 @@ export default defineComponent({
   background: var(--hover-bg);
   padding: 0.25rem 0.5rem;
   border-radius: var(--radius-sm);
-}
-
-.ledger-actions {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.ledger-card:hover .ledger-actions {
-  opacity: 1;
-}
-
-.btn-icon {
-  background: var(--hover-bg);
-  border: none;
-  padding: 0.5rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.btn-icon:hover {
-  background: var(--glass-border);
 }
 
 /* 버튼 스타일 */
