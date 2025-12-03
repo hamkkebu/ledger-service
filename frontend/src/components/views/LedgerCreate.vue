@@ -131,7 +131,7 @@
 
           <!-- 버튼들 -->
           <div class="form-actions">
-            <router-link to="/" class="btn-secondary">취소</router-link>
+            <router-link to="/dashboard" class="btn-secondary">취소</router-link>
             <button type="submit" class="btn-primary" :disabled="submitting || !formData.name">
               <span v-if="submitting" class="spinner"></span>
               {{ submitting ? '생성 중...' : '가계부 만들기' }}
