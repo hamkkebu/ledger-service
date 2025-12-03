@@ -77,9 +77,9 @@
       <div class="ledger-section">
         <div class="section-header">
           <h2>내 가계부</h2>
-          <button @click="showCreateModal = true" class="btn-primary">
+          <router-link to="/create" class="btn-primary">
             + 새 가계부
-          </button>
+          </router-link>
         </div>
 
         <div v-if="summary.ledgers.length === 0" class="empty-state glass">
