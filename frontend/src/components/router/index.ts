@@ -13,6 +13,12 @@ const routes: Array<RouteRecordRaw> = [
     meta: { requiresAuth: false },
   },
   {
+    path: '/start',
+    name: 'Start',
+    component: () => import('@/components/views/StartRedirect.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/create',
     name: 'LedgerCreate',
     component: () => import('@/components/views/LedgerCreate.vue'),

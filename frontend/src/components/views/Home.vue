@@ -23,11 +23,8 @@
       </div>
 
       <div class="cta">
-        <router-link v-if="isAuthenticated" to="/dashboard" class="btn-primary">
-          대시보드로 이동
-        </router-link>
-        <router-link v-else to="/create" class="btn-primary">
-          시작하기
+        <router-link to="/start" class="btn-primary">
+          {{ isAuthenticated ? '대시보드로 이동' : '시작하기' }}
         </router-link>
       </div>
     </div>
