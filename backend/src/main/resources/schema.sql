@@ -2,15 +2,8 @@
 CREATE DATABASE IF NOT EXISTS hamkkebu_ledger;
 USE hamkkebu_ledger;
 
--- Drop existing tables
-DROP TABLE IF EXISTS transactions;
-DROP TABLE IF EXISTS categories;
-DROP TABLE IF EXISTS ledgers;
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS tbl_outbox_event;
-
 -- Create users table (auth-service에서 동기화)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     user_id BIGINT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
@@ -32,7 +25,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create ledgers table (가계부)
-CREATE TABLE ledgers (
+CREATE TABLE IF NOT EXISTS ledgers (
     ledger_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -51,7 +44,7 @@ CREATE TABLE ledgers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create categories table (카테고리)
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     category_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ledger_id BIGINT NOT NULL,
     name VARCHAR(50) NOT NULL,
@@ -74,7 +67,7 @@ CREATE TABLE categories (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create transactions table (거래내역)
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
     transaction_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ledger_id BIGINT NOT NULL,
     category_id BIGINT,
@@ -100,7 +93,7 @@ CREATE TABLE transactions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create Transactional Outbox Event table
-CREATE TABLE tbl_outbox_event (
+CREATE TABLE IF NOT EXISTS tbl_outbox_event (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     event_id VARCHAR(36) NOT NULL UNIQUE,
     event_type VARCHAR(100) NOT NULL,
