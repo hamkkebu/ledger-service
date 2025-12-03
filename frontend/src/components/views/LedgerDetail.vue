@@ -32,7 +32,7 @@
           <p class="description">{{ ledger.description || '설명 없음' }}</p>
         </div>
         <div class="header-actions">
-          <button @click="showEditModal = true" class="btn-secondary">
+          <button @click="openEditModal" class="btn-secondary">
             수정
           </button>
           <button @click="showDeleteModal = true" class="btn-danger">
@@ -329,6 +329,7 @@ export default defineComponent({
       formatCurrency,
       formatDate,
       getCurrencyName,
+      openEditModal,
       closeEditModal,
       updateLedger,
       deleteLedger,
