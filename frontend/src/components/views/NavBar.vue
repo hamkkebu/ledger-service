@@ -1,13 +1,18 @@
 <template>
   <nav class="navbar glass">
     <div class="navbar-brand">
-      <span class="gradient-text">함께부</span>
+      <router-link to="/home" class="brand-link">
+        <span class="gradient-text">함께부</span>
+      </router-link>
     </div>
     <div v-if="isAuthenticated" class="navbar-menu">
       <router-link to="/dashboard" class="nav-link">대시보드</router-link>
       <a href="http://localhost:3001/userinfo" class="nav-link">내 정보</a>
       <span class="user-info">{{ username }}</span>
       <button @click="logout" class="nav-link logout-btn">로그아웃</button>
+    </div>
+    <div v-else class="navbar-menu">
+      <button @click="handleLogin" class="btn-login">로그인</button>
     </div>
   </nav>
 </template>
@@ -19,9 +24,13 @@ import { useAuth } from '@/composables/useAuth';
 export default defineComponent({
   name: 'NavBar',
   setup() {
-    const { currentUser, isAuthenticated, logout: authLogout } = useAuth();
+    const { currentUser, isAuthenticated, logout: authLogout, login } = useAuth();
 
     const username = computed(() => currentUser.value?.username || '');
+
+    const handleLogin = () => {
+      login(window.location.origin + '/dashboard');
+    };
 
     const handleLogout = async () => {
       if (confirm('로그아웃 하시겠습니까?')) {
@@ -33,6 +42,7 @@ export default defineComponent({
     return {
       isAuthenticated,
       username,
+      handleLogin,
       logout: handleLogout,
     };
   },
@@ -53,6 +63,10 @@ export default defineComponent({
 .navbar-brand {
   font-size: 1.5rem;
   font-weight: 700;
+}
+
+.brand-link {
+  text-decoration: none;
 }
 
 .navbar-menu {
@@ -86,5 +100,23 @@ export default defineComponent({
   cursor: pointer;
   font-size: inherit;
   font-family: inherit;
+}
+
+.btn-login {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-login:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 </style>
