@@ -41,43 +41,6 @@
         </div>
       </div>
 
-      <!-- 통계 카드 -->
-      <div class="stats-section">
-        <div class="stat-card glass">
-          <div class="stat-icon income">+</div>
-          <div class="stat-info">
-            <span class="stat-label">총 수입</span>
-            <span class="stat-value income">{{ formatCurrency(transactionSummary?.totalIncome || ledger.totalIncome, ledger.currency) }}</span>
-          </div>
-        </div>
-
-        <div class="stat-card glass">
-          <div class="stat-icon expense">-</div>
-          <div class="stat-info">
-            <span class="stat-label">총 지출</span>
-            <span class="stat-value expense">{{ formatCurrency(transactionSummary?.totalExpense || ledger.totalExpense, ledger.currency) }}</span>
-          </div>
-        </div>
-
-        <div class="stat-card glass">
-          <div class="stat-icon balance">=</div>
-          <div class="stat-info">
-            <span class="stat-label">잔액</span>
-            <span class="stat-value" :class="(transactionSummary?.balance || ledger.balance) >= 0 ? 'positive' : 'negative'">
-              {{ formatCurrency(transactionSummary?.balance || ledger.balance, ledger.currency) }}
-            </span>
-          </div>
-        </div>
-
-        <div class="stat-card glass">
-          <div class="stat-icon count">#</div>
-          <div class="stat-info">
-            <span class="stat-label">거래 수</span>
-            <span class="stat-value">{{ transactionSummary?.transactionCount || ledger.transactionCount }}건</span>
-          </div>
-        </div>
-      </div>
-
       <!-- 거래 내역 섹션 -->
       <div class="transactions-section glass">
         <div class="section-header">
@@ -108,6 +71,24 @@
             <button class="nav-btn" @click="navigatePeriod(1)" :disabled="isCurrentPeriod">
               →
             </button>
+          </div>
+
+          <!-- 기간별 통계 -->
+          <div class="period-stats">
+            <div class="period-stat income">
+              <span class="period-stat-label">수입</span>
+              <span class="period-stat-value">{{ formatCurrency(transactionSummary?.totalIncome || 0, ledger.currency) }}</span>
+            </div>
+            <div class="period-stat expense">
+              <span class="period-stat-label">지출</span>
+              <span class="period-stat-value">{{ formatCurrency(transactionSummary?.totalExpense || 0, ledger.currency) }}</span>
+            </div>
+            <div class="period-stat balance">
+              <span class="period-stat-label">잔액</span>
+              <span class="period-stat-value" :class="(transactionSummary?.balance || 0) >= 0 ? 'positive' : 'negative'">
+                {{ formatCurrency(transactionSummary?.balance || 0, ledger.currency) }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -877,61 +858,9 @@ export default defineComponent({
   gap: 0.75rem;
 }
 
-/* Stats Section */
-.stats-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  border-radius: var(--radius-lg);
-  transition: transform 0.2s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-
-.stat-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.stat-icon.income { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-.stat-icon.expense { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-.stat-icon.balance { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
-.stat-icon.count { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-label {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  margin-bottom: 0.25rem;
-}
-
-.stat-value {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.stat-value.income, .positive { color: var(--accent-green); }
-.stat-value.expense, .negative { color: var(--accent-red); }
+/* Common utility classes */
+.positive { color: var(--accent-green); }
+.negative { color: var(--accent-red); }
 
 /* Transactions Section */
 .transactions-section {
@@ -1120,6 +1049,50 @@ export default defineComponent({
   font-weight: 600;
   width: 180px;
   text-align: center;
+}
+
+/* Period Stats */
+.period-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 1rem;
+}
+
+.period-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.period-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.period-stat-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.period-stat.income .period-stat-value {
+  color: var(--accent-green);
+}
+
+.period-stat.expense .period-stat-value {
+  color: var(--accent-red);
+}
+
+.period-stat.balance .period-stat-value.positive {
+  color: var(--accent-green);
+}
+
+.period-stat.balance .period-stat-value.negative {
+  color: var(--accent-red);
 }
 
 /* Period Details */
