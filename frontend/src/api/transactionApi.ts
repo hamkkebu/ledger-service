@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import type { ApiResponse } from '@/types/ledger.types';
-import type { Transaction, TransactionRequest, TransactionSummary, TransactionPage } from '@/types/transaction.types';
+import type { Transaction, TransactionRequest, TransactionSummary, TransactionPage, PeriodTransactionSummary } from '@/types/transaction.types';
 
 /**
  * 토큰 제공자 (Keycloak에서 토큰 가져오기)
@@ -135,6 +135,48 @@ export const transactionApi = {
    */
   async deleteTransaction(id: number): Promise<void> {
     await transactionApiClient.delete(`${BASE_URL}/${id}`);
+  },
+
+  // ==================== 기간별 조회 API ====================
+
+  /**
+   * 일별 거래 요약 조회
+   */
+  async getDailySummary(ledgerId: number, date: string): Promise<PeriodTransactionSummary> {
+    const response = await transactionApiClient.get<ApiResponse<PeriodTransactionSummary>>(`${BASE_URL}/daily`, {
+      params: { ledgerId, date },
+    });
+    return response.data.data;
+  },
+
+  /**
+   * 월별 거래 요약 조회
+   */
+  async getMonthlySummary(ledgerId: number, year: number, month: number): Promise<PeriodTransactionSummary> {
+    const response = await transactionApiClient.get<ApiResponse<PeriodTransactionSummary>>(`${BASE_URL}/monthly`, {
+      params: { ledgerId, year, month },
+    });
+    return response.data.data;
+  },
+
+  /**
+   * 년별 거래 요약 조회
+   */
+  async getYearlySummary(ledgerId: number, year: number): Promise<PeriodTransactionSummary> {
+    const response = await transactionApiClient.get<ApiResponse<PeriodTransactionSummary>>(`${BASE_URL}/yearly`, {
+      params: { ledgerId, year },
+    });
+    return response.data.data;
+  },
+
+  /**
+   * 기간별 거래 요약 조회
+   */
+  async getPeriodSummary(ledgerId: number, startDate: string, endDate: string): Promise<PeriodTransactionSummary> {
+    const response = await transactionApiClient.get<ApiResponse<PeriodTransactionSummary>>(`${BASE_URL}/period`, {
+      params: { ledgerId, startDate, endDate },
+    });
+    return response.data.data;
   },
 };
 

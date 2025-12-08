@@ -41,3 +41,31 @@ export interface TransactionPage {
   first: boolean;
   last: boolean;
 }
+
+// 기간 유형
+export type PeriodType = 'DAILY' | 'MONTHLY' | 'YEARLY';
+
+// 기간 상세 요약
+export interface PeriodDetail {
+  periodLabel: string;
+  startDate: string;
+  endDate: string;
+  income: number;
+  expense: number;
+  balance: number;
+  transactionCount: number;
+}
+
+// 기간별 거래 요약
+export interface PeriodTransactionSummary {
+  ledgerId: number;
+  periodType: PeriodType;
+  startDate: string;
+  endDate: string;
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  transactionCount: number;
+  transactions: Transaction[];
+  periodDetails: PeriodDetail[] | null;
+}

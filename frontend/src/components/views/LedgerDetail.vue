@@ -110,6 +110,46 @@
           </button>
         </div>
 
+        <!-- 기간 선택 UI -->
+        <div class="period-selector">
+          <div class="period-type-buttons">
+            <button
+              v-for="type in periodTypes"
+              :key="type.value"
+              :class="['period-type-btn', { active: selectedPeriodType === type.value }]"
+              @click="changePeriodType(type.value)"
+            >
+              {{ type.label }}
+            </button>
+          </div>
+
+          <div class="period-navigator">
+            <button class="nav-btn" @click="navigatePeriod(-1)">
+              ←
+            </button>
+            <span class="current-period">{{ currentPeriodLabel }}</span>
+            <button class="nav-btn" @click="navigatePeriod(1)" :disabled="isCurrentPeriod">
+              →
+            </button>
+          </div>
+        </div>
+
+        <!-- 기간별 요약 (월별/년별 조회 시) -->
+        <div v-if="periodSummary?.periodDetails && periodSummary.periodDetails.length > 0" class="period-details">
+          <div
+            v-for="detail in periodSummary.periodDetails"
+            :key="detail.periodLabel"
+            class="period-detail-item"
+          >
+            <span class="period-label">{{ formatPeriodLabel(detail.periodLabel) }}</span>
+            <span class="period-income">+{{ formatCurrency(detail.income, ledger.currency) }}</span>
+            <span class="period-expense">-{{ formatCurrency(detail.expense, ledger.currency) }}</span>
+            <span class="period-balance" :class="detail.balance >= 0 ? 'positive' : 'negative'">
+              {{ formatCurrency(detail.balance, ledger.currency) }}
+            </span>
+          </div>
+        </div>
+
         <!-- 거래 로딩 -->
         <div v-if="transactionsLoading" class="transactions-loading">
           <div class="loading-spinner small"></div>
@@ -329,7 +369,7 @@ import { useRoute, useRouter } from 'vue-router';
 import ledgerApi from '@/api/ledgerApi';
 import transactionApi, { setTransactionTokenProvider } from '@/api/transactionApi';
 import type { Ledger, LedgerRequest } from '@/types/ledger.types';
-import type { Transaction, TransactionRequest, TransactionSummary, TransactionType } from '@/types/transaction.types';
+import type { Transaction, TransactionRequest, TransactionSummary, TransactionType, PeriodTransactionSummary, PeriodType } from '@/types/transaction.types';
 import { useAuth } from '@/composables/useAuth';
 
 export default defineComponent({
@@ -370,6 +410,17 @@ export default defineComponent({
     const showTransactionModal = ref(false);
     const editingTransaction = ref<Transaction | null>(null);
     const transactionSubmitting = ref(false);
+
+    // 기간별 조회 상태
+    const periodTypes = [
+      { value: 'ALL' as const, label: '전체' },
+      { value: 'DAILY' as const, label: '일별' },
+      { value: 'MONTHLY' as const, label: '월별' },
+      { value: 'YEARLY' as const, label: '년별' },
+    ];
+    const selectedPeriodType = ref<'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY'>('ALL');
+    const selectedDate = ref(new Date());
+    const periodSummary = ref<PeriodTransactionSummary | null>(null);
 
     const transactionFormData = ref<{
       type: TransactionType;
@@ -414,16 +465,70 @@ export default defineComponent({
     const fetchTransactions = async () => {
       transactionsLoading.value = true;
       try {
-        const [transactionList, summary] = await Promise.all([
-          transactionApi.getTransactions(ledgerId.value),
-          transactionApi.getSummary(ledgerId.value),
-        ]);
-        transactions.value = transactionList;
-        transactionSummary.value = summary;
+        const date = selectedDate.value;
+
+        switch (selectedPeriodType.value) {
+          case 'DAILY': {
+            const dateStr = date.toISOString().split('T')[0];
+            const summary = await transactionApi.getDailySummary(ledgerId.value, dateStr);
+            periodSummary.value = summary;
+            transactions.value = summary.transactions || [];
+            transactionSummary.value = {
+              ledgerId: summary.ledgerId,
+              totalIncome: summary.totalIncome,
+              totalExpense: summary.totalExpense,
+              balance: summary.balance,
+              transactionCount: summary.transactionCount,
+            };
+            break;
+          }
+          case 'MONTHLY': {
+            const summary = await transactionApi.getMonthlySummary(
+              ledgerId.value,
+              date.getFullYear(),
+              date.getMonth() + 1
+            );
+            periodSummary.value = summary;
+            transactions.value = summary.transactions || [];
+            transactionSummary.value = {
+              ledgerId: summary.ledgerId,
+              totalIncome: summary.totalIncome,
+              totalExpense: summary.totalExpense,
+              balance: summary.balance,
+              transactionCount: summary.transactionCount,
+            };
+            break;
+          }
+          case 'YEARLY': {
+            const summary = await transactionApi.getYearlySummary(ledgerId.value, date.getFullYear());
+            periodSummary.value = summary;
+            transactions.value = summary.transactions || [];
+            transactionSummary.value = {
+              ledgerId: summary.ledgerId,
+              totalIncome: summary.totalIncome,
+              totalExpense: summary.totalExpense,
+              balance: summary.balance,
+              transactionCount: summary.transactionCount,
+            };
+            break;
+          }
+          default: {
+            // ALL - 전체 조회
+            const [transactionList, summary] = await Promise.all([
+              transactionApi.getTransactions(ledgerId.value),
+              transactionApi.getSummary(ledgerId.value),
+            ]);
+            transactions.value = transactionList;
+            transactionSummary.value = summary;
+            periodSummary.value = null;
+            break;
+          }
+        }
       } catch (err: any) {
         console.error('Failed to fetch transactions:', err);
         // 거래 조회 실패 시 조용히 실패 (가계부 정보는 표시)
         transactions.value = [];
+        periodSummary.value = null;
       } finally {
         transactionsLoading.value = false;
       }
@@ -587,6 +692,75 @@ export default defineComponent({
       }
     };
 
+    // 기간별 조회 관련 computed
+    const currentPeriodLabel = computed(() => {
+      const date = selectedDate.value;
+      switch (selectedPeriodType.value) {
+        case 'DAILY':
+          return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+        case 'MONTHLY':
+          return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
+        case 'YEARLY':
+          return `${date.getFullYear()}년`;
+        default:
+          return '전체';
+      }
+    });
+
+    const isCurrentPeriod = computed(() => {
+      const now = new Date();
+      const date = selectedDate.value;
+      switch (selectedPeriodType.value) {
+        case 'DAILY':
+          return date.toDateString() === now.toDateString();
+        case 'MONTHLY':
+          return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+        case 'YEARLY':
+          return date.getFullYear() === now.getFullYear();
+        default:
+          return true;
+      }
+    });
+
+    // 기간 유형 변경
+    const changePeriodType = async (type: 'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY') => {
+      selectedPeriodType.value = type;
+      selectedDate.value = new Date();
+      await fetchTransactions();
+    };
+
+    // 기간 이동
+    const navigatePeriod = async (direction: number) => {
+      const date = new Date(selectedDate.value);
+      switch (selectedPeriodType.value) {
+        case 'DAILY':
+          date.setDate(date.getDate() + direction);
+          break;
+        case 'MONTHLY':
+          date.setMonth(date.getMonth() + direction);
+          break;
+        case 'YEARLY':
+          date.setFullYear(date.getFullYear() + direction);
+          break;
+      }
+      selectedDate.value = date;
+      await fetchTransactions();
+    };
+
+    // 기간 라벨 포맷
+    const formatPeriodLabel = (label: string): string => {
+      if (label.length === 10) {
+        // yyyy-MM-dd 형식 (일별)
+        const [year, month, day] = label.split('-');
+        return `${month}월 ${day}일`;
+      } else if (label.length === 7) {
+        // yyyy-MM 형식 (월별)
+        const [year, month] = label.split('-');
+        return `${month}월`;
+      }
+      return label;
+    };
+
     onMounted(() => {
       fetchLedger();
     });
@@ -606,6 +780,17 @@ export default defineComponent({
       editingTransaction,
       transactionSubmitting,
       transactionFormData,
+      // 기간별 조회 관련
+      periodTypes,
+      selectedPeriodType,
+      selectedDate,
+      periodSummary,
+      currentPeriodLabel,
+      isCurrentPeriod,
+      changePeriodType,
+      navigatePeriod,
+      formatPeriodLabel,
+      // 함수들
       fetchLedger,
       formatCurrency,
       formatDate,
@@ -941,6 +1126,133 @@ export default defineComponent({
   font-size: 0.875rem;
   margin-top: 0.5rem;
   color: var(--text-tertiary);
+}
+
+/* Period Selector */
+.period-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--hover-bg);
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+}
+
+.period-type-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.period-type-btn {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.period-type-btn:hover {
+  background: var(--glass-border);
+}
+
+.period-type-btn.active {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: transparent;
+}
+
+.period-navigator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: var(--glass-border);
+}
+
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.current-period {
+  font-size: 1.125rem;
+  font-weight: 600;
+  min-width: 150px;
+  text-align: center;
+}
+
+/* Period Details */
+.period-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--hover-bg);
+  border-radius: var(--radius-md);
+}
+
+.period-detail-item {
+  display: grid;
+  grid-template-columns: 1fr repeat(3, auto);
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--glass-bg);
+  border-radius: var(--radius-sm);
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.period-label {
+  font-weight: 500;
+}
+
+.period-income {
+  color: var(--accent-green);
+  text-align: right;
+}
+
+.period-expense {
+  color: var(--accent-red);
+  text-align: right;
+}
+
+.period-balance {
+  font-weight: 600;
+  text-align: right;
+  min-width: 100px;
+}
+
+.period-balance.positive {
+  color: var(--accent-green);
+}
+
+.period-balance.negative {
+  color: var(--accent-red);
 }
 
 /* Buttons */
