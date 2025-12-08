@@ -78,29 +78,6 @@
         </div>
       </div>
 
-      <!-- 가계부 정보 -->
-      <div class="info-section glass">
-        <h2>가계부 정보</h2>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">통화</span>
-            <span class="info-value">{{ getCurrencyName(ledger.currency) }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">생성일</span>
-            <span class="info-value">{{ formatDate(ledger.createdAt) }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">최근 수정</span>
-            <span class="info-value">{{ formatDate(ledger.updatedAt) }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">기본 가계부</span>
-            <span class="info-value">{{ ledger.isDefault ? '예' : '아니오' }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- 거래 내역 섹션 -->
       <div class="transactions-section glass">
         <div class="section-header">
@@ -547,16 +524,6 @@ export default defineComponent({
       });
     };
 
-    const getCurrencyName = (currency: string): string => {
-      const currencyNames: Record<string, string> = {
-        KRW: 'KRW (원)',
-        USD: 'USD ($)',
-        EUR: 'EUR (€)',
-        JPY: 'JPY (¥)',
-      };
-      return currencyNames[currency] || currency;
-    };
-
     const openEditModal = () => {
       if (ledger.value) {
         formData.value = {
@@ -782,7 +749,6 @@ export default defineComponent({
       formatCurrency,
       formatDate,
       formatSimpleDate,
-      getCurrencyName,
       openEditModal,
       closeEditModal,
       updateLedger,
@@ -966,42 +932,6 @@ export default defineComponent({
 
 .stat-value.income, .positive { color: var(--accent-green); }
 .stat-value.expense, .negative { color: var(--accent-red); }
-
-/* Info Section */
-.info-section {
-  padding: 1.5rem;
-  border-radius: var(--radius-lg);
-  margin-bottom: 2rem;
-}
-
-.info-section h2 {
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.info-label {
-  color: var(--text-tertiary);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.info-value {
-  color: var(--text-primary);
-  font-weight: 500;
-}
 
 /* Transactions Section */
 .transactions-section {
