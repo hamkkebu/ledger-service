@@ -47,7 +47,7 @@
           <div class="stat-icon income">+</div>
           <div class="stat-info">
             <span class="stat-label">총 수입</span>
-            <span class="stat-value income">{{ formatCurrency(ledger.totalIncome, ledger.currency) }}</span>
+            <span class="stat-value income">{{ formatCurrency(transactionSummary?.totalIncome || ledger.totalIncome, ledger.currency) }}</span>
           </div>
         </div>
 
@@ -55,7 +55,7 @@
           <div class="stat-icon expense">-</div>
           <div class="stat-info">
             <span class="stat-label">총 지출</span>
-            <span class="stat-value expense">{{ formatCurrency(ledger.totalExpense, ledger.currency) }}</span>
+            <span class="stat-value expense">{{ formatCurrency(transactionSummary?.totalExpense || ledger.totalExpense, ledger.currency) }}</span>
           </div>
         </div>
 
@@ -63,8 +63,8 @@
           <div class="stat-icon balance">=</div>
           <div class="stat-info">
             <span class="stat-label">잔액</span>
-            <span class="stat-value" :class="ledger.balance >= 0 ? 'positive' : 'negative'">
-              {{ formatCurrency(ledger.balance, ledger.currency) }}
+            <span class="stat-value" :class="(transactionSummary?.balance || ledger.balance) >= 0 ? 'positive' : 'negative'">
+              {{ formatCurrency(transactionSummary?.balance || ledger.balance, ledger.currency) }}
             </span>
           </div>
         </div>
@@ -73,7 +73,7 @@
           <div class="stat-icon count">#</div>
           <div class="stat-info">
             <span class="stat-label">거래 수</span>
-            <span class="stat-value">{{ ledger.transactionCount }}건</span>
+            <span class="stat-value">{{ transactionSummary?.transactionCount || ledger.transactionCount }}건</span>
           </div>
         </div>
       </div>
@@ -101,17 +101,52 @@
         </div>
       </div>
 
-      <!-- 거래 내역 섹션 (향후 구현) -->
+      <!-- 거래 내역 섹션 -->
       <div class="transactions-section glass">
         <div class="section-header">
           <h2>거래 내역</h2>
-          <button class="btn-primary" disabled>
+          <button class="btn-primary" @click="openTransactionModal()">
             + 거래 추가
           </button>
         </div>
-        <div class="coming-soon">
-          <p>거래 내역 기능이 곧 추가됩니다.</p>
-          <p class="hint">수입/지출 내역을 기록하고 관리할 수 있습니다.</p>
+
+        <!-- 거래 로딩 -->
+        <div v-if="transactionsLoading" class="transactions-loading">
+          <div class="loading-spinner small"></div>
+          <p>거래 내역을 불러오는 중...</p>
+        </div>
+
+        <!-- 거래 목록 -->
+        <div v-else-if="transactions.length > 0" class="transactions-list">
+          <div
+            v-for="transaction in transactions"
+            :key="transaction.id"
+            class="transaction-item"
+            @click="openTransactionModal(transaction)"
+          >
+            <div class="transaction-main">
+              <div class="transaction-type" :class="transaction.type.toLowerCase()">
+                {{ transaction.type === 'INCOME' ? '+' : '-' }}
+              </div>
+              <div class="transaction-info">
+                <span class="transaction-description">
+                  {{ transaction.description || (transaction.type === 'INCOME' ? '수입' : '지출') }}
+                </span>
+                <span class="transaction-meta">
+                  {{ transaction.category || '미분류' }} · {{ formatSimpleDate(transaction.transactionDate) }}
+                </span>
+              </div>
+            </div>
+            <div class="transaction-amount" :class="transaction.type.toLowerCase()">
+              {{ transaction.type === 'INCOME' ? '+' : '-' }}{{ formatCurrency(transaction.amount, ledger.currency) }}
+            </div>
+          </div>
+        </div>
+
+        <!-- 거래 없음 -->
+        <div v-else class="no-transactions">
+          <p>아직 거래 내역이 없습니다.</p>
+          <p class="hint">위의 '거래 추가' 버튼을 클릭하여 첫 거래를 기록해보세요.</p>
         </div>
       </div>
     </div>
@@ -177,6 +212,114 @@
         </div>
       </div>
     </div>
+
+    <!-- 거래 추가/수정 모달 -->
+    <div v-if="showTransactionModal" class="modal-overlay" @click.self="closeTransactionModal">
+      <div class="modal glass">
+        <h2>{{ editingTransaction ? '거래 수정' : '거래 추가' }}</h2>
+        <form @submit.prevent="saveTransaction">
+          <div class="form-group">
+            <label>거래 유형 *</label>
+            <div class="type-selector">
+              <button
+                type="button"
+                class="type-btn income"
+                :class="{ active: transactionFormData.type === 'INCOME' }"
+                @click="transactionFormData.type = 'INCOME'"
+              >
+                수입
+              </button>
+              <button
+                type="button"
+                class="type-btn expense"
+                :class="{ active: transactionFormData.type === 'EXPENSE' }"
+                @click="transactionFormData.type = 'EXPENSE'"
+              >
+                지출
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="amount">금액 *</label>
+            <input
+              id="amount"
+              v-model.number="transactionFormData.amount"
+              type="number"
+              placeholder="금액을 입력하세요"
+              min="1"
+              step="1"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="transactionDate">날짜 *</label>
+            <input
+              id="transactionDate"
+              v-model="transactionFormData.transactionDate"
+              type="date"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="txDescription">설명</label>
+            <input
+              id="txDescription"
+              v-model="transactionFormData.description"
+              type="text"
+              placeholder="거래 설명을 입력하세요"
+            />
+          </div>
+          <div class="form-group">
+            <label for="category">카테고리</label>
+            <select id="category" v-model="transactionFormData.category">
+              <option value="">선택하세요</option>
+              <optgroup v-if="transactionFormData.type === 'INCOME'" label="수입">
+                <option value="급여">급여</option>
+                <option value="부수입">부수입</option>
+                <option value="용돈">용돈</option>
+                <option value="투자수익">투자수익</option>
+                <option value="기타수입">기타수입</option>
+              </optgroup>
+              <optgroup v-else label="지출">
+                <option value="식비">식비</option>
+                <option value="교통비">교통비</option>
+                <option value="주거비">주거비</option>
+                <option value="의료비">의료비</option>
+                <option value="문화생활">문화생활</option>
+                <option value="쇼핑">쇼핑</option>
+                <option value="통신비">통신비</option>
+                <option value="기타지출">기타지출</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="memo">메모</label>
+            <textarea
+              id="memo"
+              v-model="transactionFormData.memo"
+              placeholder="메모를 입력하세요"
+              rows="2"
+            ></textarea>
+          </div>
+          <div class="modal-actions">
+            <button
+              v-if="editingTransaction"
+              type="button"
+              @click="deleteTransaction"
+              class="btn-danger"
+              :disabled="transactionSubmitting"
+            >
+              삭제
+            </button>
+            <div class="spacer"></div>
+            <button type="button" @click="closeTransactionModal" class="btn-secondary">취소</button>
+            <button type="submit" class="btn-primary" :disabled="transactionSubmitting">
+              {{ transactionSubmitting ? '저장 중...' : '저장' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -184,13 +327,26 @@
 import { defineComponent, ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ledgerApi from '@/api/ledgerApi';
+import transactionApi, { setTransactionTokenProvider } from '@/api/transactionApi';
 import type { Ledger, LedgerRequest } from '@/types/ledger.types';
+import type { Transaction, TransactionRequest, TransactionSummary, TransactionType } from '@/types/transaction.types';
+import { useAuth } from '@/composables/useAuth';
 
 export default defineComponent({
   name: 'LedgerDetail',
   setup() {
     const route = useRoute();
     const router = useRouter();
+    const { getToken } = useAuth();
+
+    // 토큰 제공자 설정
+    setTransactionTokenProvider(async () => {
+      try {
+        return await getToken();
+      } catch {
+        return null;
+      }
+    });
 
     const ledger = ref<Ledger | null>(null);
     const loading = ref(true);
@@ -207,6 +363,30 @@ export default defineComponent({
       isDefault: false,
     });
 
+    // 거래 관련 상태
+    const transactions = ref<Transaction[]>([]);
+    const transactionSummary = ref<TransactionSummary | null>(null);
+    const transactionsLoading = ref(false);
+    const showTransactionModal = ref(false);
+    const editingTransaction = ref<Transaction | null>(null);
+    const transactionSubmitting = ref(false);
+
+    const transactionFormData = ref<{
+      type: TransactionType;
+      amount: number;
+      description: string;
+      category: string;
+      transactionDate: string;
+      memo: string;
+    }>({
+      type: 'EXPENSE',
+      amount: 0,
+      description: '',
+      category: '',
+      transactionDate: new Date().toISOString().split('T')[0],
+      memo: '',
+    });
+
     const ledgerId = computed(() => Number(route.params.id));
 
     const fetchLedger = async () => {
@@ -215,6 +395,8 @@ export default defineComponent({
 
       try {
         ledger.value = await ledgerApi.getLedger(ledgerId.value);
+        // 거래 내역도 함께 로드
+        await fetchTransactions();
       } catch (err: any) {
         console.error('Failed to fetch ledger:', err);
         if (err.response?.status === 401) {
@@ -226,6 +408,24 @@ export default defineComponent({
         }
       } finally {
         loading.value = false;
+      }
+    };
+
+    const fetchTransactions = async () => {
+      transactionsLoading.value = true;
+      try {
+        const [transactionList, summary] = await Promise.all([
+          transactionApi.getTransactions(ledgerId.value),
+          transactionApi.getSummary(ledgerId.value),
+        ]);
+        transactions.value = transactionList;
+        transactionSummary.value = summary;
+      } catch (err: any) {
+        console.error('Failed to fetch transactions:', err);
+        // 거래 조회 실패 시 조용히 실패 (가계부 정보는 표시)
+        transactions.value = [];
+      } finally {
+        transactionsLoading.value = false;
       }
     };
 
@@ -243,6 +443,13 @@ export default defineComponent({
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+      });
+    };
+
+    const formatSimpleDate = (dateString: string): string => {
+      return new Date(dateString).toLocaleDateString('ko-KR', {
+        month: 'short',
+        day: 'numeric',
       });
     };
 
@@ -300,22 +507,89 @@ export default defineComponent({
       }
     };
 
+    // 거래 관련 함수
+    const openTransactionModal = (transaction?: Transaction) => {
+      if (transaction) {
+        editingTransaction.value = transaction;
+        transactionFormData.value = {
+          type: transaction.type,
+          amount: transaction.amount,
+          description: transaction.description || '',
+          category: transaction.category || '',
+          transactionDate: transaction.transactionDate,
+          memo: transaction.memo || '',
+        };
+      } else {
+        editingTransaction.value = null;
+        transactionFormData.value = {
+          type: 'EXPENSE',
+          amount: 0,
+          description: '',
+          category: '',
+          transactionDate: new Date().toISOString().split('T')[0],
+          memo: '',
+        };
+      }
+      showTransactionModal.value = true;
+    };
+
+    const closeTransactionModal = () => {
+      showTransactionModal.value = false;
+      editingTransaction.value = null;
+    };
+
+    const saveTransaction = async () => {
+      transactionSubmitting.value = true;
+
+      try {
+        const request: TransactionRequest = {
+          ledgerId: ledgerId.value,
+          type: transactionFormData.value.type,
+          amount: transactionFormData.value.amount,
+          description: transactionFormData.value.description || undefined,
+          category: transactionFormData.value.category || undefined,
+          transactionDate: transactionFormData.value.transactionDate,
+          memo: transactionFormData.value.memo || undefined,
+        };
+
+        if (editingTransaction.value) {
+          await transactionApi.updateTransaction(editingTransaction.value.id, request);
+        } else {
+          await transactionApi.createTransaction(request);
+        }
+
+        closeTransactionModal();
+        await fetchTransactions();
+      } catch (err: any) {
+        console.error('Failed to save transaction:', err);
+        alert(err.response?.data?.error?.message || '저장에 실패했습니다.');
+      } finally {
+        transactionSubmitting.value = false;
+      }
+    };
+
+    const deleteTransaction = async () => {
+      if (!editingTransaction.value) return;
+
+      if (!confirm('정말로 이 거래를 삭제하시겠습니까?')) return;
+
+      transactionSubmitting.value = true;
+
+      try {
+        await transactionApi.deleteTransaction(editingTransaction.value.id);
+        closeTransactionModal();
+        await fetchTransactions();
+      } catch (err: any) {
+        console.error('Failed to delete transaction:', err);
+        alert(err.response?.data?.error?.message || '삭제에 실패했습니다.');
+      } finally {
+        transactionSubmitting.value = false;
+      }
+    };
+
     onMounted(() => {
       fetchLedger();
     });
-
-    // Watch for edit modal to populate form
-    const startEdit = () => {
-      if (ledger.value) {
-        formData.value = {
-          name: ledger.value.name,
-          description: ledger.value.description || '',
-          currency: ledger.value.currency,
-          isDefault: ledger.value.isDefault,
-        };
-      }
-      showEditModal.value = true;
-    };
 
     return {
       ledger,
@@ -325,14 +599,26 @@ export default defineComponent({
       showEditModal,
       showDeleteModal,
       formData,
+      transactions,
+      transactionSummary,
+      transactionsLoading,
+      showTransactionModal,
+      editingTransaction,
+      transactionSubmitting,
+      transactionFormData,
       fetchLedger,
       formatCurrency,
       formatDate,
+      formatSimpleDate,
       getCurrencyName,
       openEditModal,
       closeEditModal,
       updateLedger,
       deleteLedger,
+      openTransactionModal,
+      closeTransactionModal,
+      saveTransaction,
+      deleteTransaction,
     };
   },
 });
@@ -362,6 +648,12 @@ export default defineComponent({
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
+}
+
+.loading-spinner.small {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
 }
 
 @keyframes spin {
@@ -556,13 +848,96 @@ export default defineComponent({
   font-size: 1.25rem;
 }
 
-.coming-soon {
+.transactions-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: var(--hover-bg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.transaction-item:hover {
+  background: var(--glass-border);
+}
+
+.transaction-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.transaction-type {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.transaction-type.income {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--accent-green);
+}
+
+.transaction-type.expense {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+}
+
+.transaction-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.transaction-description {
+  font-weight: 500;
+}
+
+.transaction-meta {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+
+.transaction-amount {
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.transaction-amount.income {
+  color: var(--accent-green);
+}
+
+.transaction-amount.expense {
+  color: var(--accent-red);
+}
+
+.no-transactions {
   text-align: center;
   padding: 3rem;
   color: var(--text-secondary);
 }
 
-.coming-soon .hint {
+.no-transactions .hint {
   font-size: 0.875rem;
   margin-top: 0.5rem;
   color: var(--text-tertiary);
@@ -646,6 +1021,8 @@ export default defineComponent({
   padding: 2rem;
   border-radius: var(--radius-xl);
   animation: slideUp 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 @keyframes slideUp {
@@ -675,6 +1052,8 @@ export default defineComponent({
 }
 
 .form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="date"],
 .form-group textarea,
 .form-group select {
   width: 100%;
@@ -708,11 +1087,44 @@ export default defineComponent({
   margin: 0;
 }
 
+.type-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.type-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--hover-bg);
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-btn.income.active {
+  border-color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--accent-green);
+}
+
+.type-btn.expense.active {
+  border-color: var(--accent-red);
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1.5rem;
+}
+
+.modal-actions .spacer {
+  flex: 1;
 }
 
 .warning {
