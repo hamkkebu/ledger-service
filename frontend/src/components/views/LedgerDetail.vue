@@ -748,6 +748,16 @@ export default defineComponent({
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .loading-container {
@@ -866,6 +876,10 @@ export default defineComponent({
 .transactions-section {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .section-header {
@@ -891,6 +905,9 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .transaction-item {
