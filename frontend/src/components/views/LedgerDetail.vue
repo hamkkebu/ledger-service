@@ -413,12 +413,11 @@ export default defineComponent({
 
     // 기간별 조회 상태
     const periodTypes = [
-      { value: 'ALL' as const, label: '전체' },
-      { value: 'DAILY' as const, label: '일별' },
-      { value: 'MONTHLY' as const, label: '월별' },
-      { value: 'YEARLY' as const, label: '년별' },
+      { value: 'YEARLY' as const, label: '년' },
+      { value: 'MONTHLY' as const, label: '월' },
+      { value: 'DAILY' as const, label: '일' },
     ];
-    const selectedPeriodType = ref<'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY'>('ALL');
+    const selectedPeriodType = ref<'DAILY' | 'MONTHLY' | 'YEARLY'>('MONTHLY');
     const selectedDate = ref(new Date());
     const periodSummary = ref<PeriodTransactionSummary | null>(null);
 
@@ -482,7 +481,21 @@ export default defineComponent({
             };
             break;
           }
-          case 'MONTHLY': {
+          case 'YEARLY': {
+            const summary = await transactionApi.getYearlySummary(ledgerId.value, date.getFullYear());
+            periodSummary.value = summary;
+            transactions.value = summary.transactions || [];
+            transactionSummary.value = {
+              ledgerId: summary.ledgerId,
+              totalIncome: summary.totalIncome,
+              totalExpense: summary.totalExpense,
+              balance: summary.balance,
+              transactionCount: summary.transactionCount,
+            };
+            break;
+          }
+          case 'MONTHLY':
+          default: {
             const summary = await transactionApi.getMonthlySummary(
               ledgerId.value,
               date.getFullYear(),
@@ -497,30 +510,6 @@ export default defineComponent({
               balance: summary.balance,
               transactionCount: summary.transactionCount,
             };
-            break;
-          }
-          case 'YEARLY': {
-            const summary = await transactionApi.getYearlySummary(ledgerId.value, date.getFullYear());
-            periodSummary.value = summary;
-            transactions.value = summary.transactions || [];
-            transactionSummary.value = {
-              ledgerId: summary.ledgerId,
-              totalIncome: summary.totalIncome,
-              totalExpense: summary.totalExpense,
-              balance: summary.balance,
-              transactionCount: summary.transactionCount,
-            };
-            break;
-          }
-          default: {
-            // ALL - 전체 조회
-            const [transactionList, summary] = await Promise.all([
-              transactionApi.getTransactions(ledgerId.value),
-              transactionApi.getSummary(ledgerId.value),
-            ]);
-            transactions.value = transactionList;
-            transactionSummary.value = summary;
-            periodSummary.value = null;
             break;
           }
         }
@@ -698,12 +687,11 @@ export default defineComponent({
       switch (selectedPeriodType.value) {
         case 'DAILY':
           return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
-        case 'MONTHLY':
-          return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
         case 'YEARLY':
           return `${date.getFullYear()}년`;
+        case 'MONTHLY':
         default:
-          return '전체';
+          return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
       }
     });
 
@@ -713,17 +701,16 @@ export default defineComponent({
       switch (selectedPeriodType.value) {
         case 'DAILY':
           return date.toDateString() === now.toDateString();
-        case 'MONTHLY':
-          return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
         case 'YEARLY':
           return date.getFullYear() === now.getFullYear();
+        case 'MONTHLY':
         default:
-          return true;
+          return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
       }
     });
 
     // 기간 유형 변경
-    const changePeriodType = async (type: 'ALL' | 'DAILY' | 'MONTHLY' | 'YEARLY') => {
+    const changePeriodType = async (type: 'DAILY' | 'MONTHLY' | 'YEARLY') => {
       selectedPeriodType.value = type;
       selectedDate.value = new Date();
       await fetchTransactions();
