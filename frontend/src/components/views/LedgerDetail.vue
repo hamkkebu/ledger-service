@@ -1118,7 +1118,7 @@ export default defineComponent({
 .current-period {
   font-size: 1.125rem;
   font-weight: 600;
-  min-width: 150px;
+  width: 180px;
   text-align: center;
 }
 
