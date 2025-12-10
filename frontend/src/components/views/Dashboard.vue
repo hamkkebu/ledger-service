@@ -31,38 +31,6 @@
       <!-- 요약 카드 -->
       <div class="summary-cards">
         <div class="summary-card glass">
-          <div class="card-icon income">
-            <span>+</span>
-          </div>
-          <div class="card-content">
-            <p class="card-label">총 수입</p>
-            <p class="card-value income">{{ formatCurrency(summary.totalIncome) }}</p>
-          </div>
-        </div>
-
-        <div class="summary-card glass">
-          <div class="card-icon expense">
-            <span>-</span>
-          </div>
-          <div class="card-content">
-            <p class="card-label">총 지출</p>
-            <p class="card-value expense">{{ formatCurrency(summary.totalExpense) }}</p>
-          </div>
-        </div>
-
-        <div class="summary-card glass">
-          <div class="card-icon balance">
-            <span>=</span>
-          </div>
-          <div class="card-content">
-            <p class="card-label">잔액</p>
-            <p class="card-value" :class="summary.totalBalance >= 0 ? 'positive' : 'negative'">
-              {{ formatCurrency(summary.totalBalance) }}
-            </p>
-          </div>
-        </div>
-
-        <div class="summary-card glass">
           <div class="card-icon count">
             <span>#</span>
           </div>
