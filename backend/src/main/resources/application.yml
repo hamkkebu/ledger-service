@@ -70,6 +70,7 @@ kafka:
   topics:
     ledger-events: ledger.events
     user-events: user.events
+    transaction-events: transaction.events
 
 # JWT 설정 (토큰 검증용 - auth-service와 동일한 secret 사용)
 jwt:

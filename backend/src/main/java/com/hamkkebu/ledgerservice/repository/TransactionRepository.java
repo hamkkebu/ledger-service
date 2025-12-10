@@ -26,6 +26,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     Optional<Transaction> findByTransactionIdAndLedgerIdAndIsDeletedFalse(Long transactionId, Long ledgerId);
 
+    boolean existsByTransactionIdAndIsDeletedFalse(Long transactionId);
+
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t " +
            "WHERE t.ledgerId = :ledgerId AND t.type = :type AND t.isDeleted = false")
     BigDecimal sumAmountByLedgerIdAndType(@Param("ledgerId") Long ledgerId, @Param("type") TransactionType type);
