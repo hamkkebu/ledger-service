@@ -1,21 +1,16 @@
 package com.hamkkebu.ledgerservice.repository;
 
+import com.hamkkebu.boilerplate.common.user.repository.SyncedUserRepository;
 import com.hamkkebu.ledgerservice.data.entity.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
-
+/**
+ * Ledger Service User Repository
+ *
+ * <p>SyncedUserRepository를 상속받아 공통 메서드를 재사용합니다.</p>
+ * <p>서비스별 추가 쿼리 메서드가 필요한 경우 여기에 정의합니다.</p>
+ */
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
-
-    Optional<User> findByUserIdAndIsDeletedFalse(Long userId);
-
-    Optional<User> findByUsernameAndIsDeletedFalse(String username);
-
-    boolean existsByUserIdAndIsDeletedFalse(Long userId);
-
-    @Query("SELECT MAX(u.userId) FROM User u")
-    Optional<Long> findMaxUserId();
+public interface UserRepository extends SyncedUserRepository<User> {
+    // 서비스별 추가 쿼리 메서드가 필요한 경우 여기에 정의
 }

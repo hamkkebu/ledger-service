@@ -4,7 +4,7 @@ import com.hamkkebu.boilerplate.common.dto.ApiResponse;
 import com.hamkkebu.ledgerservice.data.dto.LedgerRequest;
 import com.hamkkebu.ledgerservice.data.dto.LedgerResponse;
 import com.hamkkebu.ledgerservice.data.dto.LedgerSummaryResponse;
-import com.hamkkebu.ledgerservice.security.CurrentUser;
+import com.hamkkebu.boilerplate.common.user.annotation.CurrentUser;
 import com.hamkkebu.ledgerservice.service.LedgerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

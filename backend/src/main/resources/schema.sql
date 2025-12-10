@@ -3,7 +3,7 @@ CREATE DATABASE IF NOT EXISTS hamkkebu_ledger;
 USE hamkkebu_ledger;
 
 -- Create users table (auth-service에서 동기화)
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS tbl_users (
     user_id BIGINT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create ledgers table (가계부)
-CREATE TABLE IF NOT EXISTS ledgers (
+CREATE TABLE IF NOT EXISTS tbl_ledgers (
     ledger_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS ledgers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create categories table (카테고리)
-CREATE TABLE IF NOT EXISTS categories (
+CREATE TABLE IF NOT EXISTS tbl_categories (
     category_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ledger_id BIGINT NOT NULL,
     name VARCHAR(50) NOT NULL,
@@ -62,12 +62,12 @@ CREATE TABLE IF NOT EXISTS categories (
     INDEX idx_ledger_id (ledger_id),
     INDEX idx_type (type),
     INDEX idx_is_deleted (is_deleted),
-    FOREIGN KEY (ledger_id) REFERENCES ledgers(ledger_id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES categories(category_id) ON DELETE SET NULL
+    FOREIGN KEY (ledger_id) REFERENCES tbl_ledgers(ledger_id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES tbl_categories(category_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create transactions table (거래내역)
-CREATE TABLE IF NOT EXISTS transactions (
+CREATE TABLE IF NOT EXISTS tbl_transactions (
     transaction_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     ledger_id BIGINT NOT NULL,
     category_id BIGINT,
@@ -88,8 +88,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     INDEX idx_transaction_date (transaction_date),
     INDEX idx_type (type),
     INDEX idx_is_deleted (is_deleted),
-    FOREIGN KEY (ledger_id) REFERENCES ledgers(ledger_id) ON DELETE CASCADE,
-    FOREIGN KEY (category_id) REFERENCES categories(category_id) ON DELETE SET NULL
+    FOREIGN KEY (ledger_id) REFERENCES tbl_ledgers(ledger_id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES tbl_categories(category_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create Transactional Outbox Event table

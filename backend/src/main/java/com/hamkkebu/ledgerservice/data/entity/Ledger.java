@@ -22,7 +22,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "ledgers")
+@Table(name = "tbl_ledgers")
 public class Ledger extends BaseEntity {
 
     @Id

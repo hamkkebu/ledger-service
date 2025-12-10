@@ -92,22 +92,6 @@
           </div>
         </div>
 
-        <!-- 기간별 요약 (월별/년별 조회 시) -->
-        <div v-if="periodSummary?.periodDetails && periodSummary.periodDetails.length > 0" class="period-details">
-          <div
-            v-for="detail in periodSummary.periodDetails"
-            :key="detail.periodLabel"
-            class="period-detail-item"
-          >
-            <span class="period-label">{{ formatPeriodLabel(detail.periodLabel) }}</span>
-            <span class="period-income">+{{ formatCurrency(detail.income, ledger.currency) }}</span>
-            <span class="period-expense">-{{ formatCurrency(detail.expense, ledger.currency) }}</span>
-            <span class="period-balance" :class="detail.balance >= 0 ? 'positive' : 'negative'">
-              {{ formatCurrency(detail.balance, ledger.currency) }}
-            </span>
-          </div>
-        </div>
-
         <!-- 거래 로딩 -->
         <div v-if="transactionsLoading" class="transactions-loading">
           <div class="loading-spinner small"></div>
@@ -724,7 +708,6 @@ export default defineComponent({
       isCurrentPeriod,
       changePeriodType,
       navigatePeriod,
-      formatPeriodLabel,
       // 함수들
       fetchLedger,
       formatCurrency,
@@ -748,16 +731,13 @@ export default defineComponent({
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
-  height: calc(100vh - 80px);
-  display: flex;
-  flex-direction: column;
+  min-height: calc(100vh - 80px);
 }
 
 .detail-content {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
+  gap: 1.5rem;
 }
 
 .loading-container {
@@ -814,7 +794,6 @@ export default defineComponent({
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -876,10 +855,9 @@ export default defineComponent({
 .transactions-section {
   padding: 1.5rem;
   border-radius: var(--radius-lg);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  min-width: 500px;
+  width: 100%;
+  max-width: 600px;
 }
 
 .section-header {
@@ -905,9 +883,6 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
 }
 
 .transaction-item {
@@ -1109,56 +1084,6 @@ export default defineComponent({
 }
 
 .period-stat.balance .period-stat-value.negative {
-  color: var(--accent-red);
-}
-
-/* Period Details */
-.period-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 1rem;
-  background: var(--hover-bg);
-  border-radius: var(--radius-md);
-}
-
-.period-detail-item {
-  display: grid;
-  grid-template-columns: 1fr repeat(3, auto);
-  gap: 1rem;
-  padding: 0.75rem;
-  background: var(--glass-bg);
-  border-radius: var(--radius-sm);
-  align-items: center;
-  font-size: 0.875rem;
-}
-
-.period-label {
-  font-weight: 500;
-}
-
-.period-income {
-  color: var(--accent-green);
-  text-align: right;
-}
-
-.period-expense {
-  color: var(--accent-red);
-  text-align: right;
-}
-
-.period-balance {
-  font-weight: 600;
-  text-align: right;
-  min-width: 100px;
-}
-
-.period-balance.positive {
-  color: var(--accent-green);
-}
-
-.period-balance.negative {
   color: var(--accent-red);
 }
 

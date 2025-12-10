@@ -19,7 +19,7 @@ services:
       - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
       - ./backend/src/main/resources/data.sql:/docker-entrypoint-initdb.d/2-data.sql
     networks:
-      - hamkkebu-ledger-network
+      - ledger-internal
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 10s
@@ -41,18 +41,19 @@ services:
     environment:
       # 개발 프로필 활성화 (포트 설정 적용)
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # 내부 네트워크의 DB에 연결
       SPRING_DATASOURCE_URL: jdbc:mysql://database:3306/${DB_NAME:-hamkkebu_ledger}?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       JWT_SECRET: ${JWT_SECRET:-ThisIsADevelopmentSecretKeyPleaseChangeInProductionAtLeast64Characters}
-      # Boilerplate의 Redis 컨테이너 사용 (hamkkebu-network에서 연결)
+      # 공유 인프라 네트워크의 Redis/Kafka에 연결 (컨테이너 이름 사용)
       REDIS_HOST: hamkkebu-boilerplate-redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-devRedisPassword123!}
-      # Boilerplate의 Kafka 컨테이너 사용 (hamkkebu-network 내부 리스너 사용)
       KAFKA_BOOTSTRAP_SERVERS: hamkkebu-boilerplate-kafka:29092
-      # Auth Service gRPC 주소 (host.docker.internal을 통해 접근)
-      AUTH_SERVICE_GRPC_ADDRESS: static://host.docker.internal:9091
+      # Auth Service gRPC 연결
+      AUTH_SERVICE_HOST: hamkkebu-auth-service-backend
+      AUTH_SERVICE_GRPC_PORT: 9091
       # Keycloak SSO 설정 (Docker 컨테이너에서 호스트 머신 접근)
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://host.docker.internal:8180/realms/hamkkebu
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://host.docker.internal:8180/realms/hamkkebu/protocol/openid-connect/certs
@@ -61,7 +62,8 @@ services:
       database:
         condition: service_healthy
     networks:
-      - hamkkebu-ledger-network
+      - ledger-internal
+      - hamkkebu-infra
 
   frontend:
     build:
@@ -75,11 +77,15 @@ services:
     depends_on:
       - backend
     networks:
-      - hamkkebu-ledger-network
+      - ledger-internal
 
 networks:
-  hamkkebu-ledger-network:
-    name: hamkkebu-infra
+  # 내부 전용 네트워크 (DB 격리)
+  ledger-internal:
+    driver: bridge
+
+  # 공유 인프라 네트워크 (외부에서 생성됨)
+  hamkkebu-infra:
     external: true
 
 volumes:

@@ -1,26 +1,23 @@
 package com.hamkkebu.ledgerservice.config;
 
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.StringDeserializer;
+import com.hamkkebu.boilerplate.common.user.config.AbstractUserEventKafkaConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Ledger Service 전용 Kafka Consumer 설정
  *
+ * <p>AbstractUserEventKafkaConfig를 상속받아 공통 로직을 재사용합니다.</p>
  * <p>사용자 이벤트(USER_REGISTERED, USER_DELETED)를 Map으로 수신하여
  * 이벤트 타입에 따라 처리합니다.</p>
  */
 @Configuration("ledgerUserEventKafkaConfig")
-public class KafkaConfig {
+public class KafkaConfig extends AbstractUserEventKafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
     private String bootstrapServers;
@@ -28,31 +25,23 @@ public class KafkaConfig {
     @Value("${spring.kafka.consumer.group-id:ledger-service-group}")
     private String groupId;
 
+    @Override
+    protected String getBootstrapServers() {
+        return bootstrapServers;
+    }
+
+    @Override
+    protected String getGroupId() {
+        return groupId;
+    }
+
     @Bean
     public ConsumerFactory<String, Map<String, Object>> ledgerUserEventConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-
-        // StringSerializer로 보낸 JSON을 Map으로 역직렬화
-        // 타입 헤더가 없으므로 기본 타입을 지정해야 함
-        JsonDeserializer<Map<String, Object>> deserializer = new JsonDeserializer<>(
-            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
-        );
-        deserializer.addTrustedPackages("*");
-        deserializer.setUseTypeHeaders(false);
-
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), deserializer);
+        return createConsumerFactory();
     }
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> ledgerKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, Map<String, Object>> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(ledgerUserEventConsumerFactory());
-        return factory;
+        return createContainerFactory();
     }
 }
