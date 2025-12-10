@@ -54,6 +54,7 @@ services:
       # Auth Service gRPC 연결
       AUTH_SERVICE_HOST: hamkkebu-auth-service-backend
       AUTH_SERVICE_GRPC_PORT: 9091
+      AUTH_SERVICE_GRPC_ADDRESS: static://hamkkebu-auth-service-backend:9091
       # Keycloak SSO 설정 (Docker 컨테이너에서 호스트 머신 접근)
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://host.docker.internal:8180/realms/hamkkebu
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://host.docker.internal:8180/realms/hamkkebu/protocol/openid-connect/certs
