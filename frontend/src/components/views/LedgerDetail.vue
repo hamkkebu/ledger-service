@@ -32,6 +32,9 @@
           <p class="description">{{ ledger.description || '설명 없음' }}</p>
         </div>
         <div class="header-actions">
+          <router-link :to="`/ledger/${ledger.ledgerId}/categories`" class="btn-secondary">
+            카테고리 관리
+          </router-link>
           <button @click="openEditModal" class="btn-secondary">
             수정
           </button>
@@ -255,23 +258,13 @@
             <label for="category">카테고리</label>
             <select id="category" v-model="transactionFormData.category">
               <option value="">선택하세요</option>
-              <optgroup v-if="transactionFormData.type === 'INCOME'" label="수입">
-                <option value="급여">급여</option>
-                <option value="부수입">부수입</option>
-                <option value="용돈">용돈</option>
-                <option value="투자수익">투자수익</option>
-                <option value="기타수입">기타수입</option>
-              </optgroup>
-              <optgroup v-else label="지출">
-                <option value="식비">식비</option>
-                <option value="교통비">교통비</option>
-                <option value="주거비">주거비</option>
-                <option value="의료비">의료비</option>
-                <option value="문화생활">문화생활</option>
-                <option value="쇼핑">쇼핑</option>
-                <option value="통신비">통신비</option>
-                <option value="기타지출">기타지출</option>
-              </optgroup>
+              <option
+                v-for="cat in filteredCategories"
+                :key="cat.categoryId"
+                :value="cat.name"
+              >
+                {{ cat.icon }} {{ cat.name }}
+              </option>
             </select>
           </div>
           <div class="form-group">
@@ -306,12 +299,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, computed } from 'vue';
+import { defineComponent, ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ledgerApi from '@/api/ledgerApi';
 import transactionApi, { setTransactionTokenProvider } from '@/api/transactionApi';
+import { categoryApi } from '@/api/categoryApi';
 import type { Ledger, LedgerRequest } from '@/types/ledger.types';
 import type { Transaction, TransactionRequest, TransactionSummary, TransactionType, PeriodTransactionSummary, PeriodType } from '@/types/transaction.types';
+import type { Category } from '@/types/category.types';
 import { useAuth } from '@/composables/useAuth';
 
 export default defineComponent({
@@ -353,6 +348,9 @@ export default defineComponent({
     const editingTransaction = ref<Transaction | null>(null);
     const transactionSubmitting = ref(false);
 
+    // 카테고리 상태
+    const categories = ref<Category[]>([]);
+
     // 기간별 조회 상태
     const periodTypes = [
       { value: 'YEARLY' as const, label: '년' },
@@ -380,6 +378,31 @@ export default defineComponent({
     });
 
     const ledgerId = computed(() => Number(route.params.id));
+
+    // 현재 거래 유형에 맞는 카테고리 필터링
+    const filteredCategories = computed(() => {
+      return categories.value.filter(c => c.type === transactionFormData.value.type);
+    });
+
+    const fetchCategories = async () => {
+      try {
+        const allCategories = await categoryApi.getCategories(ledgerId.value);
+        // 플랫 리스트로 변환 (부모-자식 계층 포함)
+        const flatList: Category[] = [];
+        const flatten = (cats: Category[]) => {
+          cats.forEach(cat => {
+            flatList.push(cat);
+            if (cat.children && cat.children.length > 0) {
+              flatten(cat.children);
+            }
+          });
+        };
+        flatten(allCategories);
+        categories.value = flatList;
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
 
     const fetchLedger = async () => {
       loading.value = true;
@@ -682,6 +705,7 @@ export default defineComponent({
 
     onMounted(() => {
       fetchLedger();
+      fetchCategories();
     });
 
     return {
@@ -699,6 +723,9 @@ export default defineComponent({
       editingTransaction,
       transactionSubmitting,
       transactionFormData,
+      // 카테고리 관련
+      categories,
+      filteredCategories,
       // 기간별 조회 관련
       periodTypes,
       selectedPeriodType,

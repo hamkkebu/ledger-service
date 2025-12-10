@@ -24,4 +24,6 @@ public interface LedgerRepository extends JpaRepository<Ledger, Long> {
 
     @Query("SELECT l FROM Ledger l LEFT JOIN FETCH l.categories WHERE l.ledgerId = :ledgerId AND l.isDeleted = false")
     Optional<Ledger> findByIdWithCategories(@Param("ledgerId") Long ledgerId);
+
+    boolean existsByLedgerIdAndIsDeletedFalse(Long ledgerId);
 }

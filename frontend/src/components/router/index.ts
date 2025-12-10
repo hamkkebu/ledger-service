@@ -36,6 +36,12 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/components/views/LedgerDetail.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/ledger/:id/categories',
+    name: 'CategoryManagement',
+    component: () => import('@/components/views/CategoryManagement.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({
