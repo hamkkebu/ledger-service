@@ -185,7 +185,7 @@ jobs:
             --from-literal=DB_URL="jdbc:mysql://${{ secrets.DB_HOST }}:${{ secrets.DB_PORT }}/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true" \
             --from-literal=KAFKA_BOOTSTRAP_SERVERS="${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" \
             --from-literal=AUTH_SERVICE_GRPC_ADDRESS="static://auth-service-backend:9091" \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
       - name: Create/Update Source Secret for ExternalSecrets
         run: |
@@ -193,7 +193,7 @@ jobs:
             --namespace=hamkkebu \
             --from-literal=username="${{ secrets.DB_USERNAME }}" \
             --from-literal=password="${{ secrets.DB_PASSWORD }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
   test-backend:
     needs: detect-changes
