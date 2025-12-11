@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-service-backend
+  namespace: hamkkebu
+  labels:
+    app: ledger-service-backend
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ledger-service-backend
+  template:
+    metadata:
+      labels:
+        app: ledger-service-backend
+        version: v1
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry-secret
+      containers:
+        - name: ledger-service-backend
+          image: IMAGE_PLACEHOLDER
+          ports:
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+            - name: grpc
+              containerPort: 9093
+              protocol: TCP
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          envFrom:
+            - configMapRef:
+                name: ledger-service-backend-config
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: hamkkebu-common-config
+                  key: DB_HOST
+                  optional: true
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ledger-service-secrets
+                  key: DB_USERNAME
+                  optional: true
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ledger-service-secrets
+                  key: DB_PASSWORD
+                  optional: true
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+      terminationGracePeriodSeconds: 30
