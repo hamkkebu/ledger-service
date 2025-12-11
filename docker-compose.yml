@@ -50,10 +50,7 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       JWT_SECRET: ${JWT_SECRET:-ThisIsADevelopmentSecretKeyPleaseChangeInProductionAtLeast64Characters}
-      # 공유 인프라 네트워크의 Redis/Kafka에 연결 (컨테이너 이름 사용)
-      REDIS_HOST: hamkkebu-boilerplate-redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-devRedisPassword123!}
+      # 공유 인프라 네트워크의 Kafka에 연결 (컨테이너 이름 사용)
       KAFKA_BOOTSTRAP_SERVERS: hamkkebu-boilerplate-kafka:29092
       # Auth Service gRPC 연결
       AUTH_SERVICE_HOST: hamkkebu-auth-service-backend
