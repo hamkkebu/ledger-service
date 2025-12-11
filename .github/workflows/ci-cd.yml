@@ -152,9 +152,9 @@ jobs:
           git push
 
   # ============================================
-  # 시크릿 동기화 (GitHub Secrets → K8s Source Secret)
+  # ConfigMap 및 Secret 동기화
   # ============================================
-  sync-secrets:
+  sync-config:
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
@@ -178,15 +178,21 @@ jobs:
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Create/Update source secret for ExternalSecrets
+      - name: Create/Update ConfigMap
         run: |
-          kubectl create secret generic hamkkebu-source-secrets \
+          kubectl create configmap ${{ env.SERVICE_NAME }}-config \
             --namespace=hamkkebu \
-            --from-literal=db-jdbc-url="${{ secrets.DB_JDBC_URL }}" \
-            --from-literal=db-username="${{ secrets.DB_USERNAME }}" \
-            --from-literal=db-password="${{ secrets.DB_PASSWORD }}" \
-            --from-literal=jwt-secret="${{ secrets.JWT_SECRET }}" \
-            --from-literal=keycloak-client-secret="${{ secrets.KEYCLOAK_CLIENT_SECRET }}" \
+            --from-literal=DB_URL="jdbc:mysql://${{ secrets.DB_HOST }}:${{ secrets.DB_PORT }}/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true" \
+            --from-literal=KAFKA_BOOTSTRAP_SERVERS="${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" \
+            --from-literal=AUTH_SERVICE_GRPC_ADDRESS="static://auth-service-backend:9091" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create/Update Source Secret for ExternalSecrets
+        run: |
+          kubectl create secret generic ${{ env.SERVICE_NAME }}-db-credentials \
+            --namespace=hamkkebu \
+            --from-literal=username="${{ secrets.DB_USERNAME }}" \
+            --from-literal=password="${{ secrets.DB_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
   test-backend:
