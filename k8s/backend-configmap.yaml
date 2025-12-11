@@ -1,27 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: ledger-service-backend-config
+  name: ledger-service-config
   namespace: hamkkebu
   labels:
     app: ledger-service-backend
+    service: ledger-service
 data:
-  # Spring Profile
-  SPRING_PROFILES_ACTIVE: "prod"
-
-  # Server Configuration
-  SERVER_PORT: "8082"
-  GRPC_SERVER_PORT: "9093"
-
-  # Database Configuration
-  DB_NAME: "hamkkebu_ledger"
-  DB_PORT: "3306"
-
-  # Kafka Configuration
-  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
-
-  # Auth Service gRPC
+  DB_URL: "jdbc:mysql://hamkkebu-dev-mysql.xxxxxxxxxxxx.ap-northeast-2.rds.amazonaws.com:3306/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8"
+  KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
   AUTH_SERVICE_GRPC_ADDRESS: "static://auth-service-backend:9091"
-
-  # JVM Options for t2.micro (1GB RAM)
-  JAVA_OPTS: "-Xms64m -Xmx128m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:+UseStringDeduplication"
