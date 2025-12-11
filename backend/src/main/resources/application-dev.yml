@@ -12,8 +12,8 @@ spring:
   datasource:
     # Ledger Service는 3308 포트 사용 (Auth: 3307, Boilerplate: 3306)
     url: jdbc:mysql://localhost:3308/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8
-    username: root
-    password: root
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -64,7 +64,7 @@ kafka:
 
 # JWT 설정 (토큰 검증용 - auth-service와 동일한 secret 사용)
 jwt:
-  secret: ThisIsADevelopmentSecretKeyPleaseChangeInProductionAtLeast64Characters
+  secret: ${JWT_SECRET:}
 
 # gRPC 서버 설정
 grpc:

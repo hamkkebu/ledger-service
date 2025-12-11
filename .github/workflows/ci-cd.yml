@@ -151,6 +151,44 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update ${{ env.SERVICE_NAME }}-frontend image to ${{ steps.image-tag.outputs.tag }}"
           git push
 
+  # ============================================
+  # 시크릿 동기화 (GitHub Secrets → K8s Source Secret)
+  # ============================================
+  sync-secrets:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Create/Update source secret for ExternalSecrets
+        run: |
+          kubectl create secret generic hamkkebu-source-secrets \
+            --namespace=hamkkebu \
+            --from-literal=db-jdbc-url="${{ secrets.DB_JDBC_URL }}" \
+            --from-literal=db-username="${{ secrets.DB_USERNAME }}" \
+            --from-literal=db-password="${{ secrets.DB_PASSWORD }}" \
+            --from-literal=jwt-secret="${{ secrets.JWT_SECRET }}" \
+            --from-literal=keycloak-client-secret="${{ secrets.KEYCLOAK_CLIENT_SECRET }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
   test-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true' && github.event_name == 'pull_request'
