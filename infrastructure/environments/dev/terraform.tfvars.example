@@ -1,0 +1,29 @@
+# ============================================
+# Ledger Service - Dev Environment Configuration
+# ============================================
+# 사용법:
+# 1. 이 파일을 terraform.tfvars로 복사
+# 2. 실제 값으로 변경
+# 3. terraform.tfvars는 .gitignore에 추가되어 있음
+# ============================================
+
+project_name = "hamkkebu"
+environment  = "dev"
+aws_region   = "ap-northeast-2"
+
+# ============================================
+# RDS Settings
+# ============================================
+db_instance_class          = "db.t4g.micro"
+db_allocated_storage       = 20
+db_max_allocated_storage   = 100
+db_backup_retention_period = 7
+
+db_name     = "hamkkebu_ledger"
+db_username = "admin"
+db_password = "YourLedgerDbPassword123!"  # 반드시 강력한 비밀번호로 변경
+
+# ============================================
+# 예상 월 비용 (~$15)
+# ============================================
+# - RDS (db.t4g.micro): ~$15
