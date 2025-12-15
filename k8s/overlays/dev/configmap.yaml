@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ledger-service-config
+  labels:
+    app: ledger-service
+    environment: dev
+data:
+  # Dev: 공유 RDS 사용 (hamkkebu_ledger 데이터베이스)
+  DB_URL: "jdbc:mysql://${RDS_ENDPOINT}:3306/hamkkebu_ledger?useSSL=true&requireSSL=true"
+
+  # Spring 프로필
+  SPRING_PROFILES_ACTIVE: "dev"
+
+  # Kafka 설정
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"

@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'backend/**'
       - 'frontend/**'
@@ -10,7 +10,7 @@ on:
       - 'k8s/**'
       - '.github/workflows/**'
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'backend/**'
       - 'frontend/**'
@@ -26,6 +26,7 @@ jobs:
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      environment: ${{ steps.set-env.outputs.environment }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -38,11 +39,20 @@ jobs:
             frontend:
               - 'frontend/**'
               - 'common/frontend/**'
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
 
   build-backend:
     needs: detect-changes
     if: needs.detect-changes.outputs.backend == 'true' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: ${{ needs.detect-changes.outputs.environment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -90,15 +100,19 @@ jobs:
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/hamkkebu/${{ env.SERVICE_NAME }}-backend:${{ steps.image-tag.outputs.tag }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/hamkkebu/${{ env.SERVICE_NAME }}-backend:latest
 
-      - name: Update K8s manifest
+      - name: Update K8s manifest with Kustomize
         run: |
-          sed -i "s|image: .*|image: ${{ steps.image-tag.outputs.full_tag }}|g" k8s/backend-deployment.yaml
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+          cd k8s/base
+          kustomize edit set image PLACEHOLDER_IMAGE=${{ steps.image-tag.outputs.full_tag }}
+          cd ../..
 
       - name: Commit and push K8s manifest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/backend-deployment.yaml
+          git add k8s/
           git diff --staged --quiet || git commit -m "chore: update ${{ env.SERVICE_NAME }}-backend image to ${{ steps.image-tag.outputs.tag }}"
           git push
 
@@ -106,6 +120,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend == 'true' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: ${{ needs.detect-changes.outputs.environment }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -139,26 +154,30 @@ jobs:
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/hamkkebu/${{ env.SERVICE_NAME }}-frontend:${{ steps.image-tag.outputs.tag }}
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/hamkkebu/${{ env.SERVICE_NAME }}-frontend:latest
 
-      - name: Update K8s manifest
+      - name: Update K8s manifest with Kustomize
         run: |
-          sed -i "s|image: .*|image: ${{ steps.image-tag.outputs.full_tag }}|g" k8s/frontend-deployment.yaml
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+          cd k8s/base
+          kustomize edit set image PLACEHOLDER_IMAGE=${{ steps.image-tag.outputs.full_tag }}
+          cd ../..
 
       - name: Commit and push K8s manifest
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add k8s/frontend-deployment.yaml
+          git add k8s/
           git diff --staged --quiet || git commit -m "chore: update ${{ env.SERVICE_NAME }}-frontend image to ${{ steps.image-tag.outputs.tag }}"
           git push
 
-  # ============================================
-  # ConfigMap 및 Secret 동기화
-  # ============================================
   sync-config:
+    needs: detect-changes
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-
+    if: github.event_name == 'push' && needs.detect-changes.outputs.environment == 'dev'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -182,18 +201,62 @@ jobs:
         run: |
           kubectl create configmap ${{ env.SERVICE_NAME }}-config \
             --namespace=hamkkebu \
-            --from-literal=DB_URL="jdbc:mysql://${{ secrets.DB_HOST }}:${{ secrets.DB_PORT }}/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true" \
-            --from-literal=KAFKA_BOOTSTRAP_SERVERS="${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}" \
+            --from-literal=DB_URL="jdbc:mysql://${{ secrets.RDS_ENDPOINT }}:3306/hamkkebu_ledger?useSSL=true&requireSSL=true" \
+            --from-literal=SPRING_PROFILES_ACTIVE="dev" \
+            --from-literal=KAFKA_BOOTSTRAP_SERVERS="kafka:9092" \
             --from-literal=AUTH_SERVICE_GRPC_ADDRESS="static://auth-service-backend:9091" \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
-      - name: Create/Update Source Secret for ExternalSecrets
+      - name: Create/Update Secret
         run: |
-          kubectl create secret generic ${{ env.SERVICE_NAME }}-db-credentials \
+          kubectl create secret generic ${{ env.SERVICE_NAME }}-secrets \
             --namespace=hamkkebu \
-            --from-literal=username="${{ secrets.DB_USERNAME }}" \
-            --from-literal=password="${{ secrets.DB_PASSWORD }}" \
+            --from-literal=DB_USERNAME="${{ secrets.RDS_USERNAME }}" \
+            --from-literal=DB_PASSWORD="${{ secrets.RDS_PASSWORD }}" \
             --dry-run=client -o yaml | kubectl apply --validate=false -f -
+
+  deploy-dev:
+    needs: [detect-changes, build-backend, build-frontend, sync-config]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.environment == 'dev' &&
+      (needs.build-backend.result == 'success' || needs.build-frontend.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl and kustomize
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy with Kustomize
+        run: |
+          kustomize build k8s/overlays/dev | kubectl apply -f -
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/${{ env.SERVICE_NAME }}-backend -n hamkkebu --timeout=300s || true
+          kubectl rollout status deployment/${{ env.SERVICE_NAME }}-frontend -n hamkkebu --timeout=300s || true
 
   test-backend:
     needs: detect-changes

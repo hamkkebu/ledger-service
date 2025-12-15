@@ -1,0 +1,38 @@
+# Dev 환경 전용: NodePort로 외부 접근 허용
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-service-backend-nodeport
+  labels:
+    app: ledger-service-backend
+    service: ledger-service
+    environment: dev
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8080
+      nodePort: 30082
+      protocol: TCP
+  selector:
+    app: ledger-service-backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-service-frontend-nodeport
+  labels:
+    app: ledger-service-frontend
+    service: ledger-service
+    environment: dev
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 30002
+      protocol: TCP
+  selector:
+    app: ledger-service-frontend

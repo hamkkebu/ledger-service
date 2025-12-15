@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-service-backend
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "production"
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

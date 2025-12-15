@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ledger-service-frontend
+  labels:
+    app: ledger-service-frontend
+    service: ledger-service
+    component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: ledger-service-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

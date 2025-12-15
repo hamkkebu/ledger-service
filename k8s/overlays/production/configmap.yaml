@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ledger-service-config
+  labels:
+    app: ledger-service
+    environment: production
+data:
+  # Production: 서비스 전용 RDS 사용
+  DB_URL: "jdbc:mysql://${RDS_ENDPOINT}:3306/ledger_db?useSSL=true&requireSSL=true"
+
+  # Spring 프로필
+  SPRING_PROFILES_ACTIVE: "production"
+
+  # Kafka 설정 (MSK 사용 시)
+  KAFKA_BOOTSTRAP_SERVERS: "${MSK_BOOTSTRAP_SERVERS}"

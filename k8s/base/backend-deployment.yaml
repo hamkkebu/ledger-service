@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ledger-service-backend
+  labels:
+    app: ledger-service-backend
+    service: ledger-service
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ledger-service-backend
+  template:
+    metadata:
+      labels:
+        app: ledger-service-backend
+        service: ledger-service
+        component: backend
+    spec:
+      imagePullSecrets:
+        - name: ecr-registry-secret
+      containers:
+        - name: backend
+          image: PLACEHOLDER_IMAGE
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 9090
+              name: grpc
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          env:
+            - name: JAVA_OPTS
+              value: "-Xms64m -Xmx128m -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+            - name: DB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ledger-service-config
+                  key: DB_URL
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ledger-service-secrets
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ledger-service-secrets
+                  key: DB_PASSWORD
+            - name: GRPC_SERVER_PORT
+              value: "9090"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
