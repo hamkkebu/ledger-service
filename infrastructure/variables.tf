@@ -1,9 +1,6 @@
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-  default     = "ap-northeast-2"
-}
-
+# ============================================
+# Common Variables
+# ============================================
 variable "project_name" {
   description = "Project name"
   type        = string
@@ -11,58 +8,64 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment (dev, staging, prod)"
+  description = "Environment name"
   type        = string
+  default     = "dev"
 }
 
-variable "terraform_state_bucket" {
-  description = "S3 bucket name for terraform state"
+variable "aws_region" {
+  description = "AWS region"
   type        = string
+  default     = "ap-northeast-2"
 }
 
-variable "ecr_repository_url" {
-  description = "ECR repository URL for ledger-service image"
+# ============================================
+# RDS Variables
+# ============================================
+variable "db_engine_version" {
+  description = "MySQL engine version"
   type        = string
+  default     = "8.0"
 }
 
-variable "image_tag" {
-  description = "Docker image tag"
+variable "db_instance_class" {
+  description = "RDS instance class"
   type        = string
-  default     = "latest"
+  default     = "db.t4g.micro"
 }
 
-variable "container_port" {
-  description = "Container port"
+variable "db_allocated_storage" {
+  description = "RDS allocated storage in GB"
   type        = number
-  default     = 8082
+  default     = 20
 }
 
-variable "task_cpu" {
-  description = "Task CPU units"
+variable "db_max_allocated_storage" {
+  description = "RDS max allocated storage for autoscaling in GB"
+  type        = number
+  default     = 100
+}
+
+variable "db_name" {
+  description = "Database name"
   type        = string
-  default     = "512"
+  default     = "hamkkebu_ledger"
 }
 
-variable "task_memory" {
-  description = "Task memory in MB"
+variable "db_username" {
+  description = "Database master username"
   type        = string
-  default     = "1024"
+  default     = "admin"
 }
 
-variable "desired_count" {
-  description = "Desired number of tasks"
-  type        = number
-  default     = 2
+variable "db_password" {
+  description = "Database master password"
+  type        = string
+  sensitive   = true
 }
 
-variable "min_capacity" {
-  description = "Minimum number of tasks"
+variable "db_backup_retention_period" {
+  description = "Backup retention period (days)"
   type        = number
-  default     = 1
-}
-
-variable "max_capacity" {
-  description = "Maximum number of tasks"
-  type        = number
-  default     = 4
+  default     = 7
 }

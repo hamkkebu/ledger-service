@@ -1,29 +1,38 @@
-output "task_definition_arn" {
-  description = "ARN of the task definition"
-  value       = aws_ecs_task_definition.ledger_service.arn
+# ============================================
+# RDS Outputs
+# ============================================
+output "rds_endpoint" {
+  description = "RDS endpoint"
+  value       = aws_db_instance.ledger.endpoint
 }
 
-output "service_name" {
-  description = "Name of the ECS service"
-  value       = aws_ecs_service.ledger_service.name
+output "rds_address" {
+  description = "RDS hostname (without port)"
+  value       = aws_db_instance.ledger.address
 }
 
-output "target_group_arn" {
-  description = "ARN of the target group"
-  value       = aws_lb_target_group.ledger_service.arn
+output "rds_port" {
+  description = "RDS port"
+  value       = aws_db_instance.ledger.port
 }
 
-output "log_group_name" {
-  description = "Name of the CloudWatch log group"
-  value       = aws_cloudwatch_log_group.ledger_service.name
+output "rds_database_name" {
+  description = "Database name"
+  value       = aws_db_instance.ledger.db_name
 }
 
-output "task_execution_role_arn" {
-  description = "ARN of the task execution role"
-  value       = aws_iam_role.ecs_task_execution.arn
+output "rds_connection_string" {
+  description = "JDBC connection string"
+  value       = "jdbc:mysql://${aws_db_instance.ledger.endpoint}/${aws_db_instance.ledger.db_name}?useSSL=true&requireSSL=true"
+  sensitive   = true
 }
 
-output "task_role_arn" {
-  description = "ARN of the task role"
-  value       = aws_iam_role.ecs_task.arn
+output "db_host" {
+  description = "Database host for application configuration"
+  value       = aws_db_instance.ledger.address
+}
+
+output "db_port" {
+  description = "Database port for application configuration"
+  value       = tostring(aws_db_instance.ledger.port)
 }
