@@ -1,5 +1,7 @@
 package com.hamkkebu.ledgerservice.service;
 
+import com.hamkkebu.boilerplate.common.exception.BusinessException;
+import com.hamkkebu.boilerplate.common.exception.ErrorCode;
 import com.hamkkebu.ledgerservice.data.dto.LedgerRequest;
 import com.hamkkebu.ledgerservice.data.dto.LedgerResponse;
 import com.hamkkebu.ledgerservice.data.dto.LedgerSummaryResponse;
@@ -34,7 +36,7 @@ public class LedgerService {
         log.info("Getting ledger summary for user: {}", userId);
 
         User user = userRepository.findByUserIdAndIsDeletedFalse(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         List<Ledger> ledgers = ledgerRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId);
 
@@ -91,7 +93,7 @@ public class LedgerService {
         log.info("Getting ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다: " + ledgerId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
 
         BigDecimal income = transactionRepository.sumAmountByLedgerIdAndType(ledgerId, TransactionType.INCOME);
         BigDecimal expense = transactionRepository.sumAmountByLedgerIdAndType(ledgerId, TransactionType.EXPENSE);
@@ -111,7 +113,7 @@ public class LedgerService {
 
         // 사용자 존재 확인
         if (!userRepository.existsByUserIdAndIsDeletedFalse(userId)) {
-            throw new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId);
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
 
         // 첫 번째 가계부인 경우 기본 가계부로 설정
@@ -146,7 +148,7 @@ public class LedgerService {
         log.info("Updating ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다: " + ledgerId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
 
         ledger.update(
                 request.getName(),
@@ -173,7 +175,7 @@ public class LedgerService {
         log.info("Deleting ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
-                .orElseThrow(() -> new IllegalArgumentException("가계부를 찾을 수 없습니다: " + ledgerId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
 
         ledger.delete();
         log.info("Ledger deleted: ledgerId={}", ledgerId);
