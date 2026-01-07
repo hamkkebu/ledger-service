@@ -1,5 +1,6 @@
 package com.hamkkebu.ledgerservice.service;
 
+import com.hamkkebu.boilerplate.common.constant.CommonConstants;
 import com.hamkkebu.boilerplate.common.exception.BusinessException;
 import com.hamkkebu.boilerplate.common.exception.ErrorCode;
 import com.hamkkebu.boilerplate.common.util.BigDecimalUtils;
@@ -39,7 +40,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public LedgerSummaryResponse getLedgerSummary(Long userId) {
-        log.info("Getting ledger summary for user: {}", userId);
+        log.debug("Getting ledger summary for user: {}", userId);
 
         User user = userRepository.findByUserIdAndIsDeletedFalse(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
@@ -85,7 +86,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public List<LedgerResponse> getLedgers(Long userId) {
-        log.info("Getting ledgers for user: {}", userId);
+        log.debug("Getting ledgers for user: {}", userId);
 
         return ledgerRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId)
                 .stream()
@@ -98,7 +99,7 @@ public class LedgerService {
      */
     @Transactional(readOnly = true)
     public LedgerResponse getLedger(Long userId, Long ledgerId) {
-        log.info("Getting ledger: userId={}, ledgerId={}", userId, ledgerId);
+        log.debug("Getting ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
@@ -160,18 +161,10 @@ public class LedgerService {
      * 기본 카테고리 생성 (가계부 생성 시 호출)
      */
     private void createDefaultCategories(Long ledgerId) {
-        log.info("Creating default categories for ledger: {}", ledgerId);
+        log.debug("Creating default categories for ledger: {}", ledgerId);
 
         // 수입 카테고리
-        String[][] incomeCategories = {
-                {"급여", "💰", "#4CAF50"},
-                {"부수입", "💼", "#8BC34A"},
-                {"용돈", "🎁", "#CDDC39"},
-                {"투자수익", "📈", "#00BCD4"},
-                {"기타수입", "➕", "#9E9E9E"}
-        };
-
-        for (String[] cat : incomeCategories) {
+        for (String[] cat : CommonConstants.DEFAULT_INCOME_CATEGORIES) {
             categoryRepository.save(Category.builder()
                     .ledgerId(ledgerId)
                     .name(cat[0])
@@ -182,18 +175,7 @@ public class LedgerService {
         }
 
         // 지출 카테고리
-        String[][] expenseCategories = {
-                {"식비", "🍔", "#FF5722"},
-                {"교통비", "🚗", "#2196F3"},
-                {"주거비", "🏠", "#795548"},
-                {"의료비", "💊", "#E91E63"},
-                {"문화생활", "🎬", "#9C27B0"},
-                {"쇼핑", "🛒", "#FF9800"},
-                {"통신비", "📱", "#607D8B"},
-                {"기타지출", "➖", "#9E9E9E"}
-        };
-
-        for (String[] cat : expenseCategories) {
+        for (String[] cat : CommonConstants.DEFAULT_EXPENSE_CATEGORIES) {
             categoryRepository.save(Category.builder()
                     .ledgerId(ledgerId)
                     .name(cat[0])
@@ -203,7 +185,7 @@ public class LedgerService {
                     .build());
         }
 
-        log.info("Default categories created for ledger: {}", ledgerId);
+        log.debug("Default categories created for ledger: {}", ledgerId);
     }
 
     /**
@@ -211,7 +193,7 @@ public class LedgerService {
      */
     @Transactional
     public LedgerResponse updateLedger(Long userId, Long ledgerId, LedgerRequest request) {
-        log.info("Updating ledger: userId={}, ledgerId={}", userId, ledgerId);
+        log.debug("Updating ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
@@ -242,7 +224,7 @@ public class LedgerService {
      */
     @Transactional
     public void deleteLedger(Long userId, Long ledgerId) {
-        log.info("Deleting ledger: userId={}, ledgerId={}", userId, ledgerId);
+        log.debug("Deleting ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));

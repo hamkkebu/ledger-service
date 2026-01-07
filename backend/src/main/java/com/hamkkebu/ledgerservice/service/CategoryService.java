@@ -1,5 +1,6 @@
 package com.hamkkebu.ledgerservice.service;
 
+import com.hamkkebu.boilerplate.common.constant.CommonConstants;
 import com.hamkkebu.boilerplate.common.exception.BusinessException;
 import com.hamkkebu.boilerplate.common.exception.ErrorCode;
 import com.hamkkebu.ledgerservice.data.dto.CategoryRequest;
@@ -28,7 +29,7 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategories(Long ledgerId) {
-        log.info("Getting categories for ledger: {}", ledgerId);
+        log.debug("Getting categories for ledger: {}", ledgerId);
 
         return categoryRepository.findByLedgerIdAndIsDeletedFalseOrderByNameAsc(ledgerId)
                 .stream()
@@ -42,7 +43,7 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public List<CategoryResponse> getCategoriesByType(Long ledgerId, TransactionType type) {
-        log.info("Getting categories for ledger: {}, type: {}", ledgerId, type);
+        log.debug("Getting categories for ledger: {}, type: {}", ledgerId, type);
 
         return categoryRepository.findByLedgerIdAndTypeAndIsDeletedFalse(ledgerId, type)
                 .stream()
@@ -55,7 +56,7 @@ public class CategoryService {
      */
     @Transactional(readOnly = true)
     public CategoryResponse getCategory(Long ledgerId, Long categoryId) {
-        log.info("Getting category: ledgerId={}, categoryId={}", ledgerId, categoryId);
+        log.debug("Getting category: ledgerId={}, categoryId={}", ledgerId, categoryId);
 
         Category category = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(categoryId, ledgerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
@@ -68,7 +69,7 @@ public class CategoryService {
      */
     @Transactional
     public CategoryResponse createCategory(Long ledgerId, CategoryRequest request) {
-        log.info("Creating category for ledger: {}", ledgerId);
+        log.debug("Creating category for ledger: {}", ledgerId);
 
         // 가계부 존재 확인
         if (!ledgerRepository.existsByLedgerIdAndIsDeletedFalse(ledgerId)) {
@@ -107,14 +108,14 @@ public class CategoryService {
      */
     @Transactional
     public CategoryResponse updateCategory(Long ledgerId, Long categoryId, CategoryRequest request) {
-        log.info("Updating category: ledgerId={}, categoryId={}", ledgerId, categoryId);
+        log.debug("Updating category: ledgerId={}, categoryId={}", ledgerId, categoryId);
 
         Category category = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(categoryId, ledgerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
 
         category.update(request.getName(), request.getIcon(), request.getColor());
 
-        log.info("Category updated: categoryId={}", categoryId);
+        log.debug("Category updated: categoryId={}", categoryId);
         return CategoryResponse.from(category);
     }
 
@@ -123,7 +124,7 @@ public class CategoryService {
      */
     @Transactional
     public void deleteCategory(Long ledgerId, Long categoryId) {
-        log.info("Deleting category: ledgerId={}, categoryId={}", ledgerId, categoryId);
+        log.debug("Deleting category: ledgerId={}, categoryId={}", ledgerId, categoryId);
 
         Category category = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(categoryId, ledgerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
@@ -134,7 +135,7 @@ public class CategoryService {
                 .forEach(Category::delete);
 
         category.delete();
-        log.info("Category deleted: categoryId={}", categoryId);
+        log.debug("Category deleted: categoryId={}", categoryId);
     }
 
     /**
@@ -142,18 +143,10 @@ public class CategoryService {
      */
     @Transactional
     public void createDefaultCategories(Long ledgerId) {
-        log.info("Creating default categories for ledger: {}", ledgerId);
+        log.debug("Creating default categories for ledger: {}", ledgerId);
 
         // 수입 카테고리
-        String[][] incomeCategories = {
-                {"급여", "💰", "#4CAF50"},
-                {"부수입", "💼", "#8BC34A"},
-                {"용돈", "🎁", "#CDDC39"},
-                {"투자수익", "📈", "#00BCD4"},
-                {"기타수입", "➕", "#9E9E9E"}
-        };
-
-        for (String[] cat : incomeCategories) {
+        for (String[] cat : CommonConstants.DEFAULT_INCOME_CATEGORIES) {
             categoryRepository.save(Category.builder()
                     .ledgerId(ledgerId)
                     .name(cat[0])
@@ -164,18 +157,7 @@ public class CategoryService {
         }
 
         // 지출 카테고리
-        String[][] expenseCategories = {
-                {"식비", "🍔", "#FF5722"},
-                {"교통비", "🚗", "#2196F3"},
-                {"주거비", "🏠", "#795548"},
-                {"의료비", "💊", "#E91E63"},
-                {"문화생활", "🎬", "#9C27B0"},
-                {"쇼핑", "🛒", "#FF9800"},
-                {"통신비", "📱", "#607D8B"},
-                {"기타지출", "➖", "#9E9E9E"}
-        };
-
-        for (String[] cat : expenseCategories) {
+        for (String[] cat : CommonConstants.DEFAULT_EXPENSE_CATEGORIES) {
             categoryRepository.save(Category.builder()
                     .ledgerId(ledgerId)
                     .name(cat[0])
@@ -185,6 +167,6 @@ public class CategoryService {
                     .build());
         }
 
-        log.info("Default categories created for ledger: {}", ledgerId);
+        log.debug("Default categories created for ledger: {}", ledgerId);
     }
 }
