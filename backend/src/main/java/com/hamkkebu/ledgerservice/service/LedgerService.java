@@ -2,15 +2,19 @@ package com.hamkkebu.ledgerservice.service;
 
 import com.hamkkebu.boilerplate.common.exception.BusinessException;
 import com.hamkkebu.boilerplate.common.exception.ErrorCode;
+import com.hamkkebu.boilerplate.common.util.BigDecimalUtils;
 import com.hamkkebu.ledgerservice.data.dto.LedgerRequest;
 import com.hamkkebu.ledgerservice.data.dto.LedgerResponse;
 import com.hamkkebu.ledgerservice.data.dto.LedgerSummaryResponse;
 import com.hamkkebu.ledgerservice.data.entity.Ledger;
 import com.hamkkebu.ledgerservice.data.entity.User;
 import com.hamkkebu.ledgerservice.data.enums.TransactionType;
+import com.hamkkebu.ledgerservice.data.entity.Category;
+import com.hamkkebu.ledgerservice.repository.CategoryRepository;
 import com.hamkkebu.ledgerservice.repository.LedgerRepository;
 import com.hamkkebu.ledgerservice.repository.TransactionRepository;
 import com.hamkkebu.ledgerservice.repository.UserRepository;
+import com.hamkkebu.ledgerservice.kafka.producer.LedgerEventProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,8 @@ public class LedgerService {
     private final LedgerRepository ledgerRepository;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final CategoryRepository categoryRepository;
+    private final LedgerEventProducer ledgerEventProducer;
 
     /**
      * 사용자의 가계부 현황 조회
@@ -45,10 +51,12 @@ public class LedgerService {
 
         List<LedgerResponse> ledgerResponses = ledgers.stream()
                 .map(ledger -> {
-                    BigDecimal income = transactionRepository.sumAmountByLedgerIdAndType(
-                            ledger.getLedgerId(), TransactionType.INCOME);
-                    BigDecimal expense = transactionRepository.sumAmountByLedgerIdAndType(
-                            ledger.getLedgerId(), TransactionType.EXPENSE);
+                    BigDecimal income = BigDecimalUtils.nullToZero(
+                            transactionRepository.sumAmountByLedgerIdAndType(
+                                    ledger.getLedgerId(), TransactionType.INCOME));
+                    BigDecimal expense = BigDecimalUtils.nullToZero(
+                            transactionRepository.sumAmountByLedgerIdAndType(
+                                    ledger.getLedgerId(), TransactionType.EXPENSE));
                     long txCount = ledger.getTransactions().stream()
                             .filter(t -> !t.isDeleted())
                             .count();
@@ -57,8 +65,8 @@ public class LedgerService {
                 .toList();
 
         for (LedgerResponse ledger : ledgerResponses) {
-            totalIncome = totalIncome.add(ledger.getTotalIncome() != null ? ledger.getTotalIncome() : BigDecimal.ZERO);
-            totalExpense = totalExpense.add(ledger.getTotalExpense() != null ? ledger.getTotalExpense() : BigDecimal.ZERO);
+            totalIncome = BigDecimalUtils.add(totalIncome, ledger.getTotalIncome());
+            totalExpense = BigDecimalUtils.add(totalExpense, ledger.getTotalExpense());
         }
 
         return LedgerSummaryResponse.builder()
@@ -95,8 +103,10 @@ public class LedgerService {
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
 
-        BigDecimal income = transactionRepository.sumAmountByLedgerIdAndType(ledgerId, TransactionType.INCOME);
-        BigDecimal expense = transactionRepository.sumAmountByLedgerIdAndType(ledgerId, TransactionType.EXPENSE);
+        BigDecimal income = BigDecimalUtils.nullToZero(
+                transactionRepository.sumAmountByLedgerIdAndType(ledgerId, TransactionType.INCOME));
+        BigDecimal expense = BigDecimalUtils.nullToZero(
+                transactionRepository.sumAmountByLedgerIdAndType(ledgerId, TransactionType.EXPENSE));
         long txCount = ledger.getTransactions().stream()
                 .filter(t -> !t.isDeleted())
                 .count();
@@ -137,7 +147,63 @@ public class LedgerService {
         Ledger saved = ledgerRepository.save(ledger);
         log.info("Ledger created: ledgerId={}", saved.getLedgerId());
 
+        // 기본 카테고리 생성
+        createDefaultCategories(saved.getLedgerId());
+
+        // Kafka 이벤트 발행
+        ledgerEventProducer.publishLedgerCreated(saved);
+
         return LedgerResponse.from(saved);
+    }
+
+    /**
+     * 기본 카테고리 생성 (가계부 생성 시 호출)
+     */
+    private void createDefaultCategories(Long ledgerId) {
+        log.info("Creating default categories for ledger: {}", ledgerId);
+
+        // 수입 카테고리
+        String[][] incomeCategories = {
+                {"급여", "💰", "#4CAF50"},
+                {"부수입", "💼", "#8BC34A"},
+                {"용돈", "🎁", "#CDDC39"},
+                {"투자수익", "📈", "#00BCD4"},
+                {"기타수입", "➕", "#9E9E9E"}
+        };
+
+        for (String[] cat : incomeCategories) {
+            categoryRepository.save(Category.builder()
+                    .ledgerId(ledgerId)
+                    .name(cat[0])
+                    .type(TransactionType.INCOME)
+                    .icon(cat[1])
+                    .color(cat[2])
+                    .build());
+        }
+
+        // 지출 카테고리
+        String[][] expenseCategories = {
+                {"식비", "🍔", "#FF5722"},
+                {"교통비", "🚗", "#2196F3"},
+                {"주거비", "🏠", "#795548"},
+                {"의료비", "💊", "#E91E63"},
+                {"문화생활", "🎬", "#9C27B0"},
+                {"쇼핑", "🛒", "#FF9800"},
+                {"통신비", "📱", "#607D8B"},
+                {"기타지출", "➖", "#9E9E9E"}
+        };
+
+        for (String[] cat : expenseCategories) {
+            categoryRepository.save(Category.builder()
+                    .ledgerId(ledgerId)
+                    .name(cat[0])
+                    .type(TransactionType.EXPENSE)
+                    .icon(cat[1])
+                    .color(cat[2])
+                    .build());
+        }
+
+        log.info("Default categories created for ledger: {}", ledgerId);
     }
 
     /**
@@ -164,6 +230,10 @@ public class LedgerService {
         }
 
         log.info("Ledger updated: ledgerId={}", ledgerId);
+
+        // Kafka 이벤트 발행
+        ledgerEventProducer.publishLedgerUpdated(ledger);
+
         return LedgerResponse.from(ledger);
     }
 
@@ -179,5 +249,8 @@ public class LedgerService {
 
         ledger.delete();
         log.info("Ledger deleted: ledgerId={}", ledgerId);
+
+        // Kafka 이벤트 발행
+        ledgerEventProducer.publishLedgerDeleted(ledger);
     }
 }

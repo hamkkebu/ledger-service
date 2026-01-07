@@ -1,5 +1,7 @@
 package com.hamkkebu.ledgerservice.service;
 
+import com.hamkkebu.boilerplate.common.exception.BusinessException;
+import com.hamkkebu.boilerplate.common.exception.ErrorCode;
 import com.hamkkebu.ledgerservice.data.dto.CategoryRequest;
 import com.hamkkebu.ledgerservice.data.dto.CategoryResponse;
 import com.hamkkebu.ledgerservice.data.entity.Category;
@@ -56,7 +58,7 @@ public class CategoryService {
         log.info("Getting category: ledgerId={}, categoryId={}", ledgerId, categoryId);
 
         Category category = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(categoryId, ledgerId)
-                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + categoryId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
 
         return CategoryResponse.fromWithChildren(category);
     }
@@ -70,19 +72,18 @@ public class CategoryService {
 
         // 가계부 존재 확인
         if (!ledgerRepository.existsByLedgerIdAndIsDeletedFalse(ledgerId)) {
-            throw new IllegalArgumentException("가계부를 찾을 수 없습니다: " + ledgerId);
+            throw new BusinessException(ErrorCode.LEDGER_NOT_FOUND);
         }
 
         // 부모 카테고리 검증
         if (request.getParentId() != null) {
             Category parent = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(
                     request.getParentId(), ledgerId)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "부모 카테고리를 찾을 수 없습니다: " + request.getParentId()));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
 
             // 부모 카테고리와 유형이 같아야 함
             if (parent.getType() != request.getType()) {
-                throw new IllegalArgumentException("부모 카테고리와 유형이 일치해야 합니다");
+                throw new BusinessException(ErrorCode.CATEGORY_TYPE_MISMATCH);
             }
         }
 
@@ -109,7 +110,7 @@ public class CategoryService {
         log.info("Updating category: ledgerId={}, categoryId={}", ledgerId, categoryId);
 
         Category category = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(categoryId, ledgerId)
-                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + categoryId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
 
         category.update(request.getName(), request.getIcon(), request.getColor());
 
@@ -125,7 +126,7 @@ public class CategoryService {
         log.info("Deleting category: ledgerId={}, categoryId={}", ledgerId, categoryId);
 
         Category category = categoryRepository.findByCategoryIdAndLedgerIdAndIsDeletedFalse(categoryId, ledgerId)
-                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + categoryId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CATEGORY_NOT_FOUND));
 
         // 자식 카테고리도 함께 삭제
         category.getChildren().stream()
