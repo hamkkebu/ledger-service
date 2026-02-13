@@ -302,7 +302,7 @@
 import { defineComponent, ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ledgerApi from '@/api/ledgerApi';
-import transactionApi, { setTransactionTokenProvider } from '@/api/transactionApi';
+import transactionApi from '@/api/transactionApi';
 import { categoryApi } from '@/api/categoryApi';
 import type { Ledger, LedgerRequest } from '@/types/ledger.types';
 import type { Transaction, TransactionRequest, TransactionSummary, TransactionType, PeriodTransactionSummary, PeriodType } from '@/types/transaction.types';
@@ -315,15 +315,6 @@ export default defineComponent({
     const route = useRoute();
     const router = useRouter();
     const { getToken } = useAuth();
-
-    // 토큰 제공자 설정
-    setTransactionTokenProvider(async () => {
-      try {
-        return await getToken();
-      } catch {
-        return null;
-      }
-    });
 
     const ledger = ref<Ledger | null>(null);
     const loading = ref(true);
