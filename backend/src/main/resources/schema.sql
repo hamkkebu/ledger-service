@@ -92,6 +92,34 @@ CREATE TABLE IF NOT EXISTS tbl_transactions (
     FOREIGN KEY (category_id) REFERENCES tbl_categories(category_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Create ledger shares table (가계부 공유)
+CREATE TABLE IF NOT EXISTS tbl_ledger_shares (
+    ledger_share_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ledger_id BIGINT NOT NULL,
+    owner_id BIGINT NOT NULL,
+    shared_user_id BIGINT NOT NULL,
+    status ENUM('PENDING', 'ACCEPTED', 'REJECTED') NOT NULL DEFAULT 'PENDING',
+    permission VARCHAR(20) NOT NULL DEFAULT 'READ_ONLY',
+    shared_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    accepted_at TIMESTAMP NULL,
+    rejection_reason VARCHAR(500),
+    -- BaseEntity fields
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at TIMESTAMP NULL,
+    created_by VARCHAR(50),
+    updated_by VARCHAR(50),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_ledger_shared_user (ledger_id, shared_user_id),
+    INDEX idx_shared_user_id (shared_user_id),
+    INDEX idx_owner_id (owner_id),
+    INDEX idx_status (status),
+    INDEX idx_is_deleted (is_deleted),
+    FOREIGN KEY (ledger_id) REFERENCES tbl_ledgers(ledger_id) ON DELETE CASCADE,
+    FOREIGN KEY (owner_id) REFERENCES tbl_users(user_id),
+    FOREIGN KEY (shared_user_id) REFERENCES tbl_users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Create Transactional Outbox Event table
 CREATE TABLE IF NOT EXISTS tbl_outbox_event (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

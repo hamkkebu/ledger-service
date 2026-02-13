@@ -26,4 +26,6 @@ public interface LedgerRepository extends JpaRepository<Ledger, Long> {
     Optional<Ledger> findByIdWithCategories(@Param("ledgerId") Long ledgerId);
 
     boolean existsByLedgerIdAndIsDeletedFalse(Long ledgerId);
+
+    List<Ledger> findByLedgerIdInAndIsDeletedFalse(List<Long> ledgerIds);
 }

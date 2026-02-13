@@ -26,6 +26,15 @@ public class LedgerSummaryResponse {
     private BigDecimal totalExpense;
     private BigDecimal totalBalance;
 
-    // 가계부 목록
+    // 내 가계부 목록
     private List<LedgerResponse> ledgers;
+
+    // 공유받은 가계부 통계
+    private Integer sharedLedgerCount;
+    private BigDecimal sharedTotalIncome;
+    private BigDecimal sharedTotalExpense;
+    private BigDecimal sharedTotalBalance;
+
+    // 공유받은 가계부 목록
+    private List<LedgerResponse> sharedLedgers;
 }

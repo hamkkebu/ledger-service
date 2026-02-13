@@ -56,6 +56,7 @@ spring:
 kafka:
   topics:
     ledger-events: ledger.events
+    ledger-share-events: ledger-share.events
     user-events: user.events
     transaction-events: transaction.events
 
