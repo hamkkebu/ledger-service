@@ -10,10 +10,9 @@ spring:
     name: ledger-service-dev
 
   datasource:
-    # Ledger Service는 3308 포트 사용 (Auth: 3307, Boilerplate: 3306)
     url: jdbc:mysql://localhost:3308/hamkkebu_ledger?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
