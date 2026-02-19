@@ -55,8 +55,7 @@ public class LedgerShareService {
         }
 
         // 가계부 소유자 확인
-        Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
+        validateLedgerOwnership(ledgerId, userId);
 
         // 공유 대상 사용자 존재 확인
         if (!userRepository.existsByUserIdAndIsDeletedFalse(request.getSharedUserId())) {
@@ -214,8 +213,7 @@ public class LedgerShareService {
         log.debug("Getting shares for ledger: userId={}, ledgerId={}", userId, ledgerId);
 
         // 가계부 소유자 확인
-        ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
+        validateLedgerOwnership(ledgerId, userId);
 
         return ledgerShareRepository.findByLedgerIdAndIsDeletedFalse(ledgerId)
                 .stream()
@@ -286,5 +284,14 @@ public class LedgerShareService {
         return ledgerShareRepository.findById(ledgerShareId)
                 .filter(share -> !share.isDeleted())
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_SHARE_NOT_FOUND));
+    }
+
+    /**
+     * 가계부 소유자 확인 (소유자가 아니면 예외)
+     */
+    private void validateLedgerOwnership(Long ledgerId, Long userId) {
+        Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
+        log.debug("Ledger ownership validated: ledgerId={}, userId={}", ledger.getLedgerId(), userId);
     }
 }
