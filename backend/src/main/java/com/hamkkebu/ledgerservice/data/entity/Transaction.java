@@ -36,7 +36,7 @@ public class Transaction extends BaseEntity {
     private Long categoryId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
+    @Column(name = "transaction_type", nullable = false)
     private TransactionType type;
 
     @Column(name = "amount", nullable = false, precision = 15, scale = 2)

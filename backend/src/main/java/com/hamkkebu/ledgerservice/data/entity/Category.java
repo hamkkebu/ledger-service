@@ -33,11 +33,11 @@ public class Category extends BaseEntity {
     @Column(name = "ledger_id", nullable = false)
     private Long ledgerId;
 
-    @Column(name = "name", nullable = false, length = 50)
+    @Column(name = "category_name", nullable = false, length = 50)
     private String name;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false)
+    @Column(name = "category_type", nullable = false)
     private TransactionType type;
 
     @Column(name = "icon", length = 50)

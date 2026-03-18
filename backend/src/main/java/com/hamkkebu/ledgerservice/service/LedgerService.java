@@ -274,9 +274,13 @@ public class LedgerService {
 
         // 기본 가계부 변경
         if (Boolean.TRUE.equals(request.getIsDefault()) && !ledger.getIsDefault()) {
+            // 다른 기본 가계부 해제 후 현재 가계부를 기본으로 설정
             ledgerRepository.findByUserIdAndIsDefaultTrueAndIsDeletedFalse(userId)
                     .ifPresent(Ledger::unsetDefault);
             ledger.setAsDefault();
+        } else if (Boolean.FALSE.equals(request.getIsDefault()) && ledger.getIsDefault()) {
+            // 기본 가계부 해제
+            ledger.unsetDefault();
         }
 
         log.info("Ledger updated: ledgerId={}", ledgerId);

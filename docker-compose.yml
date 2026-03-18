@@ -51,7 +51,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       JWT_SECRET: ${JWT_SECRET}
       # 공유 인프라 네트워크의 Kafka에 연결 (컨테이너 이름 사용)
-      KAFKA_BOOTSTRAP_SERVERS: hamkkebu-boilerplate-kafka:29092
+      KAFKA_BOOTSTRAP_SERVERS: hamkkebu-kafka:29092
       # Auth Service gRPC 연결
       AUTH_SERVICE_HOST: hamkkebu-auth-service-backend
       AUTH_SERVICE_GRPC_PORT: 9091
@@ -68,14 +68,24 @@ services:
       - hamkkebu-infra
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    image: node:18-alpine
     container_name: hamkkebu-ledger-service-frontend
+    working_dir: /app/frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./frontend:/app/frontend
+      - ./common:/app/common
+      - ledger-frontend-modules:/app/frontend/node_modules
+    command: sh -c "npm install && npm run dev"
     ports:
-      # Ledger Service Frontend는 3002 포트 사용 (Auth: 3001, Boilerplate: 3000)
-      - "${FRONTEND_PORT:-3002}:80"
-    restart: always
+      - "${FRONTEND_PORT:-3002}:3002"
+    environment:
+      - REACT_APP_KEYCLOAK_URL=http://localhost:8180
+      - REACT_APP_KEYCLOAK_REALM=hamkkebu
+      - REACT_APP_KEYCLOAK_CLIENT_ID=hamkkebu-frontend
+      - API_GATEWAY_URL=http://host.docker.internal:9000
+    restart: unless-stopped
     depends_on:
       - backend
     networks:
@@ -92,3 +102,4 @@ networks:
 
 volumes:
   mysql-data:
+  ledger-frontend-modules:

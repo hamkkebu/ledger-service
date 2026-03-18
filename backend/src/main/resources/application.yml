@@ -60,9 +60,10 @@ kafka:
     user-events: user.events
     transaction-events: transaction.events
 
-# JWT 설정 (토큰 검증용 - auth-service와 동일한 secret 사용)
-jwt:
-  secret: ${JWT_SECRET}
+# Spring Security OAuth2 Resource Server 설정 (Keycloak 연동)
+spring.security.oauth2.resourceserver.jwt:
+  issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/hamkkebu}
+  jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/hamkkebu/protocol/openid-connect/certs}
 
 # gRPC 설정 (내부 서비스 간 통신)
 grpc:

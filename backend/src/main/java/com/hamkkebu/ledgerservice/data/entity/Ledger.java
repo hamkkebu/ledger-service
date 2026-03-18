@@ -33,7 +33,7 @@ public class Ledger extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "name", nullable = false, length = 100)
+    @Column(name = "ledger_name", nullable = false, length = 100)
     private String name;
 
     @Column(name = "description", length = 500)
