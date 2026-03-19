@@ -35,6 +35,11 @@ export default function LedgerDetail() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('MEMBER');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState('');
 
   const [formData, setFormData] = useState<LedgerRequest>({
     name: '',
@@ -370,6 +375,27 @@ export default function LedgerDetail() {
     setSelectedDate(date);
   };
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) {
+      setInviteError('이메일을 입력해주세요.');
+      return;
+    }
+    setInviteLoading(true);
+    setInviteError('');
+    try {
+      const res = await ledgerApi.createInvitation(ledgerId, { inviteeEmail: inviteEmail, role: inviteRole });
+      setShowInviteModal(false);
+      setInviteEmail('');
+      setInviteRole('MEMBER');
+      alert('초대가 발송되었습니다.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '초대에 실패했습니다.';
+      setInviteError(msg);
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchLedger();
     fetchCategories();
@@ -452,6 +478,7 @@ export default function LedgerDetail() {
               &#8592; 목록으로
             </Link>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={() => setShowInviteModal(true)} className={styles['btn-primary']} style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>멤버 초대</button>
               <Link to="categories" className={styles['btn-secondary']}>카테고리 관리</Link>
               <button onClick={openEditModal} className={styles['btn-secondary']}>수정</button>
               <button onClick={() => setShowDeleteModal(true)} className={styles['btn-danger']}>삭제</button>
@@ -869,6 +896,72 @@ export default function LedgerDetail() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 멤버 초대 모달 */}
+      {showInviteModal && (
+        <div className={styles['modal-overlay']}>
+          <div className={`${styles.modal} glass`}>
+            <h2>멤버 초대</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+              이메일 주소로 가계부 멤버를 초대합니다.
+            </p>
+
+            {inviteError && (
+              <div style={{
+                padding: '0.75rem',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                borderRadius: 'var(--radius-md)',
+                color: '#ef4444',
+                fontSize: '0.875rem',
+                marginBottom: '1rem',
+              }}>
+                {inviteError}
+              </div>
+            )}
+
+            <div className={styles['form-group']}>
+              <label>이메일 *</label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="초대할 멤버의 이메일"
+                className={styles['form-input']}
+              />
+            </div>
+
+            <div className={styles['form-group']}>
+              <label>역할</label>
+              <select
+                value={inviteRole}
+                onChange={(e) => setInviteRole(e.target.value)}
+                className={styles['form-input']}
+              >
+                <option value="MEMBER">멤버 (거래 기록 가능)</option>
+                <option value="ADMIN">관리자 (카테고리/카드 관리)</option>
+                <option value="VIEWER">조회자 (조회만 가능)</option>
+              </select>
+            </div>
+
+            <div className={styles['modal-actions']}>
+              <button
+                className={styles['btn-secondary']}
+                onClick={() => { setShowInviteModal(false); setInviteEmail(''); setInviteError(''); }}
+              >
+                취소
+              </button>
+              <button
+                className={styles['btn-primary']}
+                onClick={handleInvite}
+                disabled={inviteLoading}
+              >
+                {inviteLoading ? '초대 중...' : '초대 보내기'}
+              </button>
+            </div>
           </div>
         </div>
       )}

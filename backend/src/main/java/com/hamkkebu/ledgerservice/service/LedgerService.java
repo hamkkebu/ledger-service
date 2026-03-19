@@ -1,6 +1,7 @@
 package com.hamkkebu.ledgerservice.service;
 
 import com.hamkkebu.boilerplate.common.constant.CommonConstants;
+import com.hamkkebu.boilerplate.common.enums.MemberRole;
 import com.hamkkebu.boilerplate.common.enums.ShareStatus;
 import com.hamkkebu.boilerplate.common.exception.BusinessException;
 import com.hamkkebu.boilerplate.common.exception.ErrorCode;
@@ -9,6 +10,7 @@ import com.hamkkebu.ledgerservice.data.dto.LedgerRequest;
 import com.hamkkebu.ledgerservice.data.dto.LedgerResponse;
 import com.hamkkebu.ledgerservice.data.dto.LedgerSummaryResponse;
 import com.hamkkebu.ledgerservice.data.entity.Ledger;
+import com.hamkkebu.ledgerservice.data.entity.LedgerMember;
 import com.hamkkebu.ledgerservice.data.entity.LedgerShare;
 import com.hamkkebu.ledgerservice.data.entity.User;
 import com.hamkkebu.ledgerservice.data.enums.TransactionType;
@@ -16,15 +18,18 @@ import com.hamkkebu.ledgerservice.data.entity.Category;
 import com.hamkkebu.ledgerservice.repository.CategoryRepository;
 import com.hamkkebu.ledgerservice.repository.LedgerRepository;
 import com.hamkkebu.ledgerservice.repository.LedgerShareRepository;
+import com.hamkkebu.ledgerservice.repository.LedgerMemberRepository;
 import com.hamkkebu.ledgerservice.repository.TransactionRepository;
 import com.hamkkebu.ledgerservice.repository.UserRepository;
 import com.hamkkebu.ledgerservice.kafka.producer.LedgerEventProducer;
+import com.hamkkebu.ledgerservice.kafka.producer.LedgerMemberEventProducer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +46,9 @@ public class LedgerService {
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
+    private final LedgerMemberRepository ledgerMemberRepository;
     private final LedgerEventProducer ledgerEventProducer;
+    private final LedgerMemberEventProducer ledgerMemberEventProducer;
 
     /**
      * 사용자의 가계부 현황 조회 (내 가계부 + 공유받은 가계부)
@@ -218,6 +225,17 @@ public class LedgerService {
 
         // 기본 카테고리 생성
         createDefaultCategories(saved.getLedgerId());
+
+        // 가계부 생성자를 OWNER 멤버로 추가
+        LedgerMember ownerMember = LedgerMember.builder()
+                .ledgerId(saved.getLedgerId())
+                .accountId(userId)
+                .role(MemberRole.OWNER)
+                .joinedAt(LocalDateTime.now())
+                .build();
+        LedgerMember savedOwnerMember = ledgerMemberRepository.save(ownerMember);
+        ledgerMemberEventProducer.publishLedgerMemberAdded(savedOwnerMember);
+        log.info("Owner member created for ledger: ledgerId={}, memberId={}, userId={}", saved.getLedgerId(), savedOwnerMember.getLedgerMemberId(), userId);
 
         // Kafka 이벤트 발행
         ledgerEventProducer.publishLedgerCreated(saved);

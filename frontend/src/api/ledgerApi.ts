@@ -50,6 +50,46 @@ export const ledgerApi = {
   async deleteLedger(ledgerId: number): Promise<void> {
     await apiClient.delete(`${BASE_URL}/${ledgerId}`);
   },
+
+  /**
+   * 멤버 초대
+   */
+  async createInvitation(ledgerId: number, data: { inviteeEmail: string; role?: string }): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>(`${BASE_URL}/${ledgerId}/invitations`, data);
+    return response.data.data;
+  },
+
+  /**
+   * 받은 초대 목록
+   */
+  async getReceivedInvitations(): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(`${BASE_URL}/invitations/received`);
+    return response.data.data;
+  },
+
+  /**
+   * 초대 수락
+   */
+  async acceptInvitation(invitationId: number): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>(`${BASE_URL}/invitations/${invitationId}/accept`);
+    return response.data.data;
+  },
+
+  /**
+   * 초대 거절
+   */
+  async rejectInvitation(invitationId: number): Promise<any> {
+    const response = await apiClient.post<ApiResponse<any>>(`${BASE_URL}/invitations/${invitationId}/reject`);
+    return response.data.data;
+  },
+
+  /**
+   * 가계부 멤버 목록
+   */
+  async getMembers(ledgerId: number): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(`${BASE_URL}/${ledgerId}/members`);
+    return response.data.data;
+  },
 };
 
 export default ledgerApi;
