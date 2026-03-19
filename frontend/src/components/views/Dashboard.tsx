@@ -255,11 +255,8 @@ export default function Dashboard() {
       {(showCreateModal || showEditModal) && (
         <div
           className={styles['modal-overlay']}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal();
-          }}
         >
-          <div className={styles.modal}>
+          <div className={`${styles.modal} glass`}>
             <h2>{showEditModal ? '가계부 수정' : '새 가계부 만들기'}</h2>
             <form onSubmit={(e) => { e.preventDefault(); submitForm(); }}>
               <div className={styles['form-group']}>
@@ -338,11 +335,8 @@ export default function Dashboard() {
       {showDeleteModal && (
         <div
           className={styles['modal-overlay']}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowDeleteModal(false);
-          }}
         >
-          <div className={styles.modal}>
+          <div className={`${styles.modal} glass`}>
             <h2>가계부 삭제</h2>
             <p>정말로 "{ledgerToDelete?.name}" 가계부를 삭제하시겠습니까?</p>
             <p className={styles.warning}>이 작업은 되돌릴 수 없습니다.</p>

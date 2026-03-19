@@ -230,9 +230,6 @@ export default function CategoryManagement() {
       {showModal && (
         <div
           className={styles['modal-overlay']}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) closeModal();
-          }}
         >
           <div className={`${styles.modal} glass`}>
             <h2 className={styles['modal-title']}>

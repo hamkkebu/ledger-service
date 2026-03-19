@@ -157,11 +157,10 @@ CREATE TABLE IF NOT EXISTS tbl_ledger_members (
     is_deleted       BOOLEAN      NOT NULL DEFAULT FALSE,
     deleted_at       DATETIME,
     CONSTRAINT fk_ledger_member_ledger FOREIGN KEY (ledger_id) REFERENCES tbl_ledgers(ledger_id) ON DELETE CASCADE,
-    CONSTRAINT uk_ledger_member UNIQUE (ledger_id, account_id)
+    CONSTRAINT uk_ledger_member UNIQUE (ledger_id, account_id),
+    INDEX idx_ledger_member_account (account_id),
+    INDEX idx_ledger_member_ledger (ledger_id)
 );
-
-CREATE INDEX idx_ledger_member_account ON tbl_ledger_members(account_id);
-CREATE INDEX idx_ledger_member_ledger ON tbl_ledger_members(ledger_id);
 
 -- ==========================================
 -- 가계부 초대 테이블
@@ -181,9 +180,8 @@ CREATE TABLE IF NOT EXISTS tbl_ledger_invitations (
     updated_by       VARCHAR(50),
     is_deleted       BOOLEAN      NOT NULL DEFAULT FALSE,
     deleted_at       DATETIME,
-    CONSTRAINT fk_invitation_ledger FOREIGN KEY (ledger_id) REFERENCES tbl_ledgers(ledger_id) ON DELETE CASCADE
+    CONSTRAINT fk_invitation_ledger FOREIGN KEY (ledger_id) REFERENCES tbl_ledgers(ledger_id) ON DELETE CASCADE,
+    INDEX idx_invitation_ledger (ledger_id),
+    INDEX idx_invitation_email (invitee_email),
+    INDEX idx_invitation_code (invite_code)
 );
-
-CREATE INDEX idx_invitation_ledger ON tbl_ledger_invitations(ledger_id);
-CREATE INDEX idx_invitation_email ON tbl_ledger_invitations(invitee_email);
-CREATE INDEX idx_invitation_code ON tbl_ledger_invitations(invite_code);
