@@ -41,6 +41,7 @@ public class LedgerShareEventProducer {
                 .ownerId(share.getOwnerId())
                 .sharedUserId(share.getSharedUserId())
                 .permission(share.getPermission().name())
+                .status(share.getStatus().name())
                 .build();
 
         outboxEventPublisher.publish(ledgerShareEventsTopic, event);

@@ -30,6 +30,11 @@ public interface LedgerInvitationRepository extends JpaRepository<LedgerInvitati
     List<LedgerInvitation> findByLedgerIdAndIsDeletedFalse(Long ledgerId);
 
     /**
+     * 가계부의 특정 상태 초대 조회
+     */
+    List<LedgerInvitation> findByLedgerIdAndStatusAndIsDeletedFalse(Long ledgerId, InvitationStatus status);
+
+    /**
      * 이메일과 상태로 초대 조회
      */
     List<LedgerInvitation> findByInviteeEmailAndStatusAndIsDeletedFalse(

@@ -236,6 +236,9 @@ export function useKeycloak() {
             updateUserInfo();
             setupTokenRefresh();
 
+            // Keycloak 인스턴스를 전역에 공유 (shell-app NotificationBell 등에서 접근)
+            (window as any).__KEYCLOAK_INSTANCE__ = keycloakInstance;
+
             // 콜백 파라미터 처리 후 URL 정리
             if (hasCallbackParams) {
               const cleanUrl = window.location.href.split('#')[0];

@@ -21,6 +21,11 @@ export interface LedgerSummary {
   totalExpense: number;
   totalBalance: number;
   ledgers: Ledger[];
+  sharedLedgerCount: number;
+  sharedTotalIncome: number;
+  sharedTotalExpense: number;
+  sharedTotalBalance: number;
+  sharedLedgers: Ledger[];
 }
 
 export interface LedgerRequest {
@@ -28,6 +33,16 @@ export interface LedgerRequest {
   description?: string;
   currency?: string;
   isDefault?: boolean;
+}
+
+export interface LedgerMember {
+  ledgerMemberId: number;
+  ledgerId: number;
+  accountId: number;
+  username: string | null;
+  email: string | null;
+  role: string;
+  joinedAt: string;
 }
 
 export interface ApiResponse<T> {

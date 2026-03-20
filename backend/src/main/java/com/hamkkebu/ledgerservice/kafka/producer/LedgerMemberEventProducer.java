@@ -1,7 +1,7 @@
 package com.hamkkebu.ledgerservice.kafka.producer;
 
 import com.hamkkebu.boilerplate.common.ledger.event.LedgerMemberAddedEvent;
-import com.hamkkebu.boilerplate.common.ledger.event.LedgerMemberRemoveEvent;
+import com.hamkkebu.boilerplate.common.ledger.event.LedgerMemberRemovedEvent;
 import com.hamkkebu.boilerplate.common.ledger.event.LedgerMemberRoleChangedEvent;
 import com.hamkkebu.boilerplate.common.publisher.OutboxEventPublisher;
 import com.hamkkebu.ledgerservice.data.entity.LedgerMember;
@@ -53,7 +53,7 @@ public class LedgerMemberEventProducer {
      * <p>반드시 @Transactional 메서드 내에서 호출해야 합니다.</p>
      */
     public void publishLedgerMemberRemoved(LedgerMember member) {
-        LedgerMemberRemoveEvent event = LedgerMemberRemoveEvent.builder()
+        LedgerMemberRemovedEvent event = LedgerMemberRemovedEvent.builder()
                 .ledgerMemberId(member.getLedgerMemberId())
                 .ledgerId(member.getLedgerId())
                 .accountId(member.getAccountId())
@@ -75,7 +75,7 @@ public class LedgerMemberEventProducer {
                 .ledgerMemberId(member.getLedgerMemberId())
                 .ledgerId(member.getLedgerId())
                 .accountId(member.getAccountId())
-                .role(member.getRole().name())
+                .newRole(member.getRole().name())
                 .build();
 
         outboxEventPublisher.publish(ledgerMemberEventsTopic, event);

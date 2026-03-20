@@ -1,15 +1,18 @@
 package com.hamkkebu.ledgerservice.service;
 
 import com.hamkkebu.boilerplate.common.enums.MemberRole;
-import com.hamkkebu.boilerplate.common.enums.MemberStatus;
+
 import com.hamkkebu.boilerplate.common.exception.BusinessException;
 import com.hamkkebu.boilerplate.common.exception.ErrorCode;
 import com.hamkkebu.ledgerservice.data.dto.MemberResponse;
 import com.hamkkebu.ledgerservice.data.entity.Ledger;
 import com.hamkkebu.ledgerservice.data.entity.LedgerMember;
+import com.hamkkebu.ledgerservice.data.entity.LedgerShare;
 import com.hamkkebu.ledgerservice.kafka.producer.LedgerMemberEventProducer;
+import com.hamkkebu.ledgerservice.kafka.producer.LedgerShareEventProducer;
 import com.hamkkebu.ledgerservice.repository.LedgerMemberRepository;
 import com.hamkkebu.ledgerservice.repository.LedgerRepository;
+import com.hamkkebu.ledgerservice.repository.LedgerShareRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +32,9 @@ public class LedgerMemberService {
 
     private final LedgerMemberRepository ledgerMemberRepository;
     private final LedgerRepository ledgerRepository;
+    private final LedgerShareRepository ledgerShareRepository;
     private final LedgerMemberEventProducer ledgerMemberEventProducer;
+    private final LedgerShareEventProducer ledgerShareEventProducer;
 
     /**
      * 멤버 목록 조회
@@ -97,7 +102,7 @@ public class LedgerMemberService {
             throw new BusinessException(ErrorCode.INVALID_ROLE);
         }
 
-        member.setRole(role);
+        member.updateRole(role);
         LedgerMember savedMember = ledgerMemberRepository.save(member);
 
         log.info("Member role changed: ledgerMemberId={}, ledgerId={}, accountId={}, newRole={}",
@@ -136,12 +141,21 @@ public class LedgerMemberService {
             throw new BusinessException(ErrorCode.CANNOT_REMOVE_OWNER);
         }
 
-        // Soft delete
+        // Soft delete member
         member.delete();
         LedgerMember deletedMember = ledgerMemberRepository.save(member);
 
         log.info("Member removed: ledgerMemberId={}, ledgerId={}, accountId={}",
                 deletedMember.getLedgerMemberId(), ledgerId, member.getAccountId());
+
+        // 연관된 LedgerShare도 soft delete (transaction-service 동기화를 위해)
+        ledgerShareRepository.findByLedgerIdAndSharedUserIdAndIsDeletedFalse(ledgerId, member.getAccountId())
+                .ifPresent(share -> {
+                    share.delete();
+                    ledgerShareRepository.save(share);
+                    ledgerShareEventProducer.publishLedgerShareDeleted(share, userId);
+                    log.info("Associated share deleted: ledgerShareId={}", share.getLedgerShareId());
+                });
 
         // 멤버 제거 이벤트 발행
         ledgerMemberEventProducer.publishLedgerMemberRemoved(deletedMember);
@@ -159,8 +173,8 @@ public class LedgerMemberService {
     public void leaveLedger(Long userId, Long ledgerId) {
         log.info("User leaving ledger: userId={}, ledgerId={}", userId, ledgerId);
 
-        LedgerMember member = ledgerMemberRepository.findByLedgerIdAndUserIdAndStatusAndIsDeletedFalse(
-                ledgerId, userId, MemberStatus.ACCEPTED)
+        LedgerMember member = ledgerMemberRepository.findByLedgerIdAndAccountIdAndIsDeletedFalse(
+                ledgerId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         // OWNER는 가계부를 떠날 수 없음
@@ -168,12 +182,21 @@ public class LedgerMemberService {
             throw new BusinessException(ErrorCode.OWNER_CANNOT_LEAVE);
         }
 
-        // Soft delete
+        // Soft delete member
         member.delete();
         LedgerMember deletedMember = ledgerMemberRepository.save(member);
 
         log.info("User left ledger: ledgerMemberId={}, ledgerId={}, userId={}",
                 deletedMember.getLedgerMemberId(), ledgerId, userId);
+
+        // 연관된 LedgerShare도 soft delete
+        ledgerShareRepository.findByLedgerIdAndSharedUserIdAndIsDeletedFalse(ledgerId, userId)
+                .ifPresent(share -> {
+                    share.delete();
+                    ledgerShareRepository.save(share);
+                    ledgerShareEventProducer.publishLedgerShareDeleted(share, userId);
+                    log.info("Associated share deleted: ledgerShareId={}", share.getLedgerShareId());
+                });
 
         // 멤버 제거 이벤트 발행
         ledgerMemberEventProducer.publishLedgerMemberRemoved(deletedMember);
@@ -193,8 +216,8 @@ public class LedgerMemberService {
         }
 
         // 멤버인 경우
-        boolean isMember = ledgerMemberRepository.existsByLedgerIdAndUserIdAndStatusAndIsDeletedFalse(
-                ledgerId, userId, MemberStatus.ACCEPTED);
+        boolean isMember = ledgerMemberRepository.existsByLedgerIdAndAccountIdAndIsDeletedFalse(
+                ledgerId, userId);
         if (isMember) {
             return;
         }
@@ -208,7 +231,7 @@ public class LedgerMemberService {
      * <p>사용자가 가계부의 소유자인지 확인합니다.</p>
      */
     protected void validateOwnerAccess(Long userId, Long ledgerId) {
-        ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
+        var unused = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
     }
 }

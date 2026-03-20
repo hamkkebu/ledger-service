@@ -4,7 +4,7 @@ import ledgerApi from '@/api/ledgerApi';
 import transactionApi from '@/api/transactionApi';
 import { categoryApi } from '@/api/categoryApi';
 import { useAuth } from '@/composables/useAuth';
-import type { Ledger, LedgerRequest } from '@/types/ledger.types';
+import type { Ledger, LedgerRequest, LedgerMember } from '@/types/ledger.types';
 import type {
   Transaction,
   TransactionRequest,
@@ -24,7 +24,7 @@ const periodTypes = [
 export default function LedgerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getToken } = useAuth();
+  const { getToken, currentUser } = useAuth();
 
   const ledgerId = parseInt(id || '0', 10);
 
@@ -40,6 +40,10 @@ export default function LedgerDetail() {
   const [inviteRole, setInviteRole] = useState('MEMBER');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [sentInvitations, setSentInvitations] = useState<any[]>([]);
+  const [sentInvitationsLoading, setSentInvitationsLoading] = useState(false);
+  const [members, setMembers] = useState<LedgerMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   const [formData, setFormData] = useState<LedgerRequest>({
     name: '',
@@ -384,10 +388,9 @@ export default function LedgerDetail() {
     setInviteError('');
     try {
       const res = await ledgerApi.createInvitation(ledgerId, { inviteeEmail: inviteEmail, role: inviteRole });
-      setShowInviteModal(false);
       setInviteEmail('');
       setInviteRole('MEMBER');
-      alert('초대가 발송되었습니다.');
+      await fetchSentInvitations();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || '초대에 실패했습니다.';
       setInviteError(msg);
@@ -396,9 +399,54 @@ export default function LedgerDetail() {
     }
   };
 
+  const fetchSentInvitations = async () => {
+    setSentInvitationsLoading(true);
+    try {
+      const data = await ledgerApi.getSentInvitations(ledgerId);
+      setSentInvitations(data || []);
+    } catch (err) {
+      console.error('Failed to fetch sent invitations:', err);
+    } finally {
+      setSentInvitationsLoading(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: number) => {
+    try {
+      await ledgerApi.cancelInvitation(invitationId);
+      setSentInvitations((prev) => prev.filter((inv) => inv.invitationId !== invitationId));
+    } catch (err: any) {
+      console.error('Failed to cancel invitation:', err);
+    }
+  };
+
+  const fetchMembers = async () => {
+    setMembersLoading(true);
+    try {
+      const data = await ledgerApi.getMembers(ledgerId);
+      setMembers(data || []);
+    } catch (err) {
+      console.error('Failed to fetch members:', err);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleRemoveMember = async (member: LedgerMember) => {
+    if (!confirm(`정말로 ${member.username || member.email || '이 멤버'}를 제거하시겠습니까?`)) return;
+    try {
+      await ledgerApi.removeMember(ledgerId, member.ledgerMemberId);
+      setMembers((prev) => prev.filter((m) => m.ledgerMemberId !== member.ledgerMemberId));
+    } catch (err: any) {
+      console.error('Failed to remove member:', err);
+      alert(err.response?.data?.error?.message || '멤버 제거에 실패했습니다.');
+    }
+  };
+
   useEffect(() => {
     fetchLedger();
     fetchCategories();
+    fetchMembers();
   }, [ledgerId]);
 
   useEffect(() => {
@@ -406,6 +454,17 @@ export default function LedgerDetail() {
       fetchTransactions();
     }
   }, [selectedPeriodType, selectedDate]);
+
+  // 현재 유저의 역할 계산
+  const myRole = (() => {
+    if (!currentUser || !members.length) return null;
+    const me = members.find((m) => m.username === currentUser.username);
+    return me?.role || null;
+  })();
+  const isOwner = myRole === 'OWNER';
+  const isAdmin = myRole === 'ADMIN';
+  const isAdminOrOwner = isOwner || isAdmin;
+  const canWrite = isOwner || isAdmin || myRole === 'MEMBER'; // VIEWER 제외
 
   if (loading) {
     return (
@@ -478,10 +537,10 @@ export default function LedgerDetail() {
               &#8592; 목록으로
             </Link>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={() => setShowInviteModal(true)} className={styles['btn-primary']} style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>멤버 초대</button>
-              <Link to="categories" className={styles['btn-secondary']}>카테고리 관리</Link>
-              <button onClick={openEditModal} className={styles['btn-secondary']}>수정</button>
-              <button onClick={() => setShowDeleteModal(true)} className={styles['btn-danger']}>삭제</button>
+              {isAdminOrOwner && <button onClick={() => { setShowInviteModal(true); fetchSentInvitations(); fetchMembers(); }} className={styles['btn-primary']} style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}>멤버 관리</button>}
+              {isAdminOrOwner && <Link to="categories" className={styles['btn-secondary']}>카테고리 관리</Link>}
+              {isAdminOrOwner && <button onClick={openEditModal} className={styles['btn-secondary']}>수정</button>}
+              {isOwner && <button onClick={() => setShowDeleteModal(true)} className={styles['btn-danger']}>삭제</button>}
             </div>
           </div>
         </div>
@@ -490,21 +549,23 @@ export default function LedgerDetail() {
         <div className={`${styles['transactions-section']} glass`}>
           <div className={styles['section-header']}>
             <h2>거래 내역</h2>
-            <div className={styles['section-header-actions']}>
-              <a
-                href={`/transactions/cards?ledgerId=${ledgerId}`}
-                className={styles['btn-secondary']}
-                style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-              >
-                &#128179; 카드 연동
-              </a>
-              <button
-                className={styles['btn-primary']}
-                onClick={() => openTransactionModal()}
-              >
-                + 거래 추가
-              </button>
-            </div>
+            {canWrite && (
+              <div className={styles['section-header-actions']}>
+                <a
+                  href={`/transactions/cards?ledgerId=${ledgerId}`}
+                  className={styles['btn-secondary']}
+                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+                >
+                  &#128179; 카드 연동
+                </a>
+                <button
+                  className={styles['btn-primary']}
+                  onClick={() => openTransactionModal()}
+                >
+                  + 거래 추가
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Period Selector */}
@@ -581,7 +642,8 @@ export default function LedgerDetail() {
                 <div
                   key={transaction.id}
                   className={styles['transaction-item']}
-                  onClick={() => openTransactionModal(transaction)}
+                  onClick={() => canWrite && openTransactionModal(transaction)}
+                  style={{ cursor: canWrite ? 'pointer' : 'default' }}
                 >
                   <div className={styles['transaction-main']}>
                     <div
@@ -904,64 +966,327 @@ export default function LedgerDetail() {
       {showInviteModal && (
         <div className={styles['modal-overlay']}>
           <div className={`${styles.modal} glass`}>
-            <h2>멤버 초대</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-              이메일 주소로 가계부 멤버를 초대합니다.
-            </p>
+            {/* 헤더 */}
+            <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✉️</div>
+              <h2 style={{ margin: '0 0 0.5rem 0' }}>멤버 초대</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+                함께 가계부를 관리할 멤버를 초대하세요
+              </p>
+            </div>
 
             {inviteError && (
               <div style={{
-                padding: '0.75rem',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                borderRadius: 'var(--radius-md)',
-                color: '#ef4444',
-                fontSize: '0.875rem',
-                marginBottom: '1rem',
+                padding: '0.75rem 1rem',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.15)',
+                borderRadius: '12px',
+                color: '#dc2626',
+                fontSize: '0.85rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
               }}>
-                {inviteError}
+                <span>⚠️</span> {inviteError}
               </div>
             )}
 
-            <div className={styles['form-group']}>
-              <label>이메일 *</label>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="초대할 멤버의 이메일"
-                className={styles['form-input']}
-              />
+            {/* 이메일 입력 */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                marginBottom: '0.5rem',
+              }}>
+                이메일 주소
+              </label>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.75rem 1rem',
+                background: 'var(--bg-primary)',
+                border: '1.5px solid var(--border-subtle)',
+                borderRadius: '12px',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}>
+                <span style={{ fontSize: '1.1rem', opacity: 0.5 }}>📧</span>
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="example@email.com"
+                  style={{
+                    flex: 1,
+                    border: 'none',
+                    background: 'transparent',
+                    fontSize: '0.95rem',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                    fontFamily: 'var(--font-family)',
+                  }}
+                />
+              </div>
             </div>
 
-            <div className={styles['form-group']}>
-              <label>역할</label>
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-                className={styles['form-input']}
-              >
-                <option value="MEMBER">멤버 (거래 기록 가능)</option>
-                <option value="ADMIN">관리자 (카테고리/카드 관리)</option>
-                <option value="VIEWER">조회자 (조회만 가능)</option>
-              </select>
+            {/* 역할 선택 */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                marginBottom: '0.75rem',
+              }}>
+                역할 선택
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {[
+                  { value: 'MEMBER', label: '멤버', desc: '거래 기록 가능', icon: '👤' },
+                  { value: 'ADMIN', label: '관리자', desc: '카테고리/카드 관리', icon: '🛡️' },
+                  { value: 'VIEWER', label: '조회자', desc: '조회만 가능', icon: '👁️' },
+                ].map((opt) => (
+                  <label
+                    key={opt.value}
+                    onClick={() => setInviteRole(opt.value)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: '12px',
+                      border: inviteRole === opt.value
+                        ? '1.5px solid var(--accent-purple)'
+                        : '1.5px solid var(--border-subtle)',
+                      background: inviteRole === opt.value
+                        ? 'rgba(124, 58, 237, 0.06)'
+                        : 'var(--bg-primary)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>{opt.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{opt.label}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{opt.desc}</div>
+                    </div>
+                    <div style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      border: inviteRole === opt.value
+                        ? '5px solid var(--accent-purple)'
+                        : '2px solid var(--border-subtle)',
+                      transition: 'all 0.15s',
+                    }} />
+                  </label>
+                ))}
+              </div>
             </div>
 
-            <div className={styles['modal-actions']}>
+            {/* 버튼 */}
+            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <button
                 className={styles['btn-secondary']}
                 onClick={() => { setShowInviteModal(false); setInviteEmail(''); setInviteError(''); }}
+                style={{ flex: 1 }}
               >
-                취소
+                닫기
               </button>
               <button
                 className={styles['btn-primary']}
                 onClick={handleInvite}
-                disabled={inviteLoading}
+                disabled={inviteLoading || !inviteEmail.trim()}
+                style={{ flex: 1, opacity: inviteLoading || !inviteEmail.trim() ? 0.6 : 1 }}
               >
                 {inviteLoading ? '초대 중...' : '초대 보내기'}
               </button>
             </div>
+
+            {/* 현재 멤버 목록 */}
+            {members.length > 0 && (
+              <div>
+                <div style={{
+                  borderTop: '1px solid var(--border-subtle)',
+                  paddingTop: '1.25rem',
+                  marginBottom: '1.25rem',
+                }}>
+                  <div style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <span>👥</span> 현재 멤버 ({members.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {members.map((member) => (
+                      <div
+                        key={member.ledgerMemberId}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.6rem 0.75rem',
+                          borderRadius: '10px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '0.85rem',
+                            fontWeight: 500,
+                            color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {member.username || member.email || `사용자 ${member.accountId}`}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                            <span style={{
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: member.role === 'OWNER' ? 'rgba(124, 58, 237, 0.15)' : member.role === 'ADMIN' ? 'rgba(59, 130, 246, 0.15)' : member.role === 'VIEWER' ? 'rgba(107, 114, 128, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                              color: member.role === 'OWNER' ? '#7c3aed' : member.role === 'ADMIN' ? '#2563eb' : member.role === 'VIEWER' ? '#4b5563' : '#059669',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                            }}>
+                              {member.role === 'OWNER' ? '소유자' : member.role === 'ADMIN' ? '관리자' : member.role === 'VIEWER' ? '조회자' : '멤버'}
+                            </span>
+                            {member.email && <span>{member.email}</span>}
+                          </div>
+                        </div>
+                        {member.role !== 'OWNER' && (
+                          currentUser?.username === member.username ? (
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              background: 'rgba(107, 114, 128, 0.1)',
+                              color: '#6b7280',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              flexShrink: 0,
+                              marginLeft: '0.5rem',
+                            }}>
+                              본인
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleRemoveMember(member)}
+                              style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                background: 'rgba(239, 68, 68, 0.08)',
+                                color: '#dc2626',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                                marginLeft: '0.5rem',
+                              }}
+                            >
+                              제거
+                            </button>
+                          )
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 보낸 초대 목록 */}
+            {sentInvitations.length > 0 && (
+              <div>
+                <div style={{
+                  borderTop: '1px solid var(--border-subtle)',
+                  paddingTop: '1.25rem',
+                }}>
+                  <div style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    marginBottom: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                  }}>
+                    <span>📤</span> 보낸 초대 ({sentInvitations.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {sentInvitations.map((inv) => (
+                      <div
+                        key={inv.invitationId}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.6rem 0.75rem',
+                          borderRadius: '10px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-subtle)',
+                        }}
+                      >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: '0.85rem',
+                            fontWeight: 500,
+                            color: 'var(--text-primary)',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {inv.inviteeEmail}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', gap: '0.5rem', marginTop: '2px' }}>
+                            <span style={{
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: inv.status === 'PENDING' ? 'rgba(251, 191, 36, 0.15)' : inv.status === 'ACCEPTED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: inv.status === 'PENDING' ? '#d97706' : inv.status === 'ACCEPTED' ? '#059669' : '#dc2626',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                            }}>
+                              {inv.status === 'PENDING' ? '대기 중' : inv.status === 'ACCEPTED' ? '수락됨' : inv.status === 'REJECTED' ? '거절됨' : inv.status === 'EXPIRED' ? '만료됨' : inv.status}
+                            </span>
+                            <span>{inv.role === 'ADMIN' ? '관리자' : inv.role === 'VIEWER' ? '조회자' : '멤버'}</span>
+                          </div>
+                        </div>
+                        {inv.status === 'PENDING' && (
+                          <button
+                            onClick={() => handleCancelInvitation(inv.invitationId)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              color: '#dc2626',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              marginLeft: '0.5rem',
+                            }}
+                          >
+                            취소
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

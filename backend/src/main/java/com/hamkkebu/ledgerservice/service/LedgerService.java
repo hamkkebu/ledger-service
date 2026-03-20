@@ -86,17 +86,29 @@ public class LedgerService {
             totalExpense = BigDecimalUtils.add(totalExpense, ledger.getTotalExpense());
         }
 
-        // ===== 공유받은 가계부 (ACCEPTED 상태만) =====
+        // ===== 공유받은 가계부 (LedgerShare ACCEPTED + LedgerMember 초대 수락) =====
+        List<Long> ownedLedgerIds = ledgers.stream()
+                .map(Ledger::getLedgerId)
+                .toList();
+
+        // 1) LedgerShare 기반 공유
         List<LedgerShare> acceptedShares = ledgerShareRepository
                 .findBySharedUserIdAndStatusAndIsDeletedFalse(userId, ShareStatus.ACCEPTED);
+        List<Long> sharedLedgerIds = acceptedShares.stream()
+                .map(LedgerShare::getLedgerId)
+                .filter(id -> !ownedLedgerIds.contains(id))
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        // 2) LedgerMember 기반 공유 (초대 수락으로 멤버가 된 경우)
+        List<LedgerMember> memberships = ledgerMemberRepository.findByAccountIdAndIsDeletedFalse(userId);
+        List<Long> memberLedgerIds = memberships.stream()
+                .map(LedgerMember::getLedgerId)
+                .filter(id -> !ownedLedgerIds.contains(id) && !sharedLedgerIds.contains(id))
+                .toList();
+        sharedLedgerIds.addAll(memberLedgerIds);
 
         BigDecimal sharedTotalIncome = BigDecimal.ZERO;
         BigDecimal sharedTotalExpense = BigDecimal.ZERO;
-
-        // N+1 방지: 공유받은 가계부 ID를 모아서 한 번에 조회
-        List<Long> sharedLedgerIds = acceptedShares.stream()
-                .map(LedgerShare::getLedgerId)
-                .toList();
 
         Map<Long, Ledger> sharedLedgerMap = sharedLedgerIds.isEmpty()
                 ? Map.of()
@@ -104,8 +116,8 @@ public class LedgerService {
                         .collect(Collectors.toMap(Ledger::getLedgerId, Function.identity()));
 
         List<LedgerResponse> sharedLedgerResponses = new ArrayList<>();
-        for (LedgerShare share : acceptedShares) {
-            Ledger sharedLedger = sharedLedgerMap.get(share.getLedgerId());
+        for (Long sharedLedgerId : sharedLedgerIds) {
+            Ledger sharedLedger = sharedLedgerMap.get(sharedLedgerId);
             if (sharedLedger != null) {
                 BigDecimal income = BigDecimalUtils.nullToZero(
                         transactionRepository.sumAmountByLedgerIdAndType(
@@ -142,16 +154,37 @@ public class LedgerService {
     }
 
     /**
-     * 가계부 목록 조회
+     * 가계부 목록 조회 (소유한 가계부 + 멤버로 참여한 가계부)
      */
     @Transactional(readOnly = true)
     public List<LedgerResponse> getLedgers(Long userId) {
         log.debug("Getting ledgers for user: {}", userId);
 
-        return ledgerRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId)
+        // 1. 소유한 가계부
+        List<LedgerResponse> ownedLedgers = ledgerRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId)
                 .stream()
                 .map(LedgerResponse::from)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        // 2. 멤버로 참여한 가계부 (소유한 가계부 제외)
+        List<LedgerMember> memberships = ledgerMemberRepository.findByAccountIdAndIsDeletedFalse(userId);
+        List<Long> ownedLedgerIds = ownedLedgers.stream()
+                .map(LedgerResponse::getLedgerId)
                 .toList();
+
+        List<Long> memberLedgerIds = memberships.stream()
+                .map(LedgerMember::getLedgerId)
+                .filter(ledgerId -> !ownedLedgerIds.contains(ledgerId))
+                .toList();
+
+        if (!memberLedgerIds.isEmpty()) {
+            List<Ledger> memberLedgers = ledgerRepository.findByLedgerIdInAndIsDeletedFalse(memberLedgerIds);
+            memberLedgers.stream()
+                    .map(LedgerResponse::from)
+                    .forEach(ownedLedgers::add);
+        }
+
+        return ownedLedgers;
     }
 
     /**
@@ -167,12 +200,14 @@ public class LedgerService {
         Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
                 .orElse(null);
 
-        // 2. 소유자가 아닌 경우, 공유받은 가계부인지 확인
+        // 2. 소유자가 아닌 경우, 멤버이거나 공유받은 가계부인지 확인
         if (ledger == null) {
-            boolean hasAccess = ledgerShareRepository
+            boolean isMember = ledgerMemberRepository
+                    .existsByLedgerIdAndAccountIdAndIsDeletedFalse(ledgerId, userId);
+            boolean hasShareAccess = !isMember && ledgerShareRepository
                     .existsByLedgerIdAndSharedUserIdAndStatusAndIsDeletedFalse(
                             ledgerId, userId, ShareStatus.ACCEPTED);
-            if (!hasAccess) {
+            if (!isMember && !hasShareAccess) {
                 throw new BusinessException(ErrorCode.LEDGER_NOT_FOUND);
             }
             ledger = ledgerRepository.findByLedgerIdAndIsDeletedFalse(ledgerId)

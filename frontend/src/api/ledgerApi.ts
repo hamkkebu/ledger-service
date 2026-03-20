@@ -1,5 +1,5 @@
 import apiClient from './client';
-import type { ApiResponse, Ledger, LedgerSummary, LedgerRequest } from '@/types/ledger.types';
+import type { ApiResponse, Ledger, LedgerSummary, LedgerRequest, LedgerMember } from '@/types/ledger.types';
 
 const BASE_URL = '/api/v1/ledgers';
 
@@ -84,11 +84,33 @@ export const ledgerApi = {
   },
 
   /**
+   * 보낸 초대 목록
+   */
+  async getSentInvitations(ledgerId: number): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(`${BASE_URL}/${ledgerId}/invitations`);
+    return response.data.data;
+  },
+
+  /**
+   * 초대 취소
+   */
+  async cancelInvitation(invitationId: number): Promise<void> {
+    await apiClient.delete(`${BASE_URL}/invitations/${invitationId}`);
+  },
+
+  /**
    * 가계부 멤버 목록
    */
-  async getMembers(ledgerId: number): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>(`${BASE_URL}/${ledgerId}/members`);
+  async getMembers(ledgerId: number): Promise<LedgerMember[]> {
+    const response = await apiClient.get<ApiResponse<LedgerMember[]>>(`${BASE_URL}/${ledgerId}/members`);
     return response.data.data;
+  },
+
+  /**
+   * 멤버 제거
+   */
+  async removeMember(ledgerId: number, memberId: number): Promise<void> {
+    await apiClient.delete(`${BASE_URL}/${ledgerId}/members/${memberId}`);
   },
 };
 

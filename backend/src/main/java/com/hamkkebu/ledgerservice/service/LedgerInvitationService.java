@@ -1,6 +1,8 @@
 package com.hamkkebu.ledgerservice.service;
 
 import com.hamkkebu.boilerplate.common.enums.MemberRole;
+import com.hamkkebu.boilerplate.common.enums.SharePermission;
+import com.hamkkebu.boilerplate.common.enums.ShareStatus;
 import com.hamkkebu.boilerplate.common.exception.BusinessException;
 import com.hamkkebu.boilerplate.common.exception.ErrorCode;
 import com.hamkkebu.boilerplate.common.publisher.OutboxEventPublisher;
@@ -9,12 +11,15 @@ import com.hamkkebu.ledgerservice.data.dto.InvitationResponse;
 import com.hamkkebu.ledgerservice.data.entity.Ledger;
 import com.hamkkebu.ledgerservice.data.entity.LedgerInvitation;
 import com.hamkkebu.ledgerservice.data.entity.LedgerMember;
+import com.hamkkebu.ledgerservice.data.entity.LedgerShare;
 import com.hamkkebu.ledgerservice.data.entity.User;
 import com.hamkkebu.ledgerservice.data.enums.InvitationStatus;
 import com.hamkkebu.ledgerservice.kafka.producer.LedgerMemberEventProducer;
+import com.hamkkebu.ledgerservice.kafka.producer.LedgerShareEventProducer;
 import com.hamkkebu.ledgerservice.repository.LedgerInvitationRepository;
 import com.hamkkebu.ledgerservice.repository.LedgerMemberRepository;
 import com.hamkkebu.ledgerservice.repository.LedgerRepository;
+import com.hamkkebu.ledgerservice.repository.LedgerShareRepository;
 import com.hamkkebu.ledgerservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +45,8 @@ public class LedgerInvitationService {
     private final LedgerMemberRepository ledgerMemberRepository;
     private final UserRepository userRepository;
     private final LedgerMemberEventProducer ledgerMemberEventProducer;
+    private final LedgerShareRepository ledgerShareRepository;
+    private final LedgerShareEventProducer ledgerShareEventProducer;
     private final OutboxEventPublisher outboxEventPublisher;
 
     /**
@@ -56,17 +63,26 @@ public class LedgerInvitationService {
     public InvitationResponse createInvitation(Long userId, Long ledgerId, InvitationRequest request) {
         log.info("Creating invitation: userId={}, ledgerId={}, inviteeEmail={}", userId, ledgerId, request.getInviteeEmail());
 
-        // 가계부 소유자 확인
-        Ledger ledger = ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
+        // 가계부 존재 확인
+        Ledger ledger = ledgerRepository.findByLedgerIdAndIsDeletedFalse(ledgerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
+
+        // 소유자 또는 ADMIN 멤버인지 확인
+        boolean isOwner = ledger.getUserId().equals(userId);
+        boolean isAdmin = ledgerMemberRepository.findByLedgerIdAndAccountIdAndIsDeletedFalse(ledgerId, userId)
+                .map(member -> member.getRole() == MemberRole.ADMIN || member.getRole() == MemberRole.OWNER)
+                .orElse(false);
+        if (!isOwner && !isAdmin) {
+            throw new BusinessException(ErrorCode.LEDGER_ACCESS_DENIED);
+        }
 
         // 초대 대상 사용자 조회 (존재해야 함)
         User invitee = userRepository.findByEmailAndIsDeletedFalse(request.getInviteeEmail())
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // 초대 대상이 이미 멤버인지 확인
-        boolean isMember = ledgerMemberRepository.existsByLedgerIdAndUserIdAndStatusAndIsDeletedFalse(
-                ledgerId, invitee.getUserId(), com.hamkkebu.boilerplate.common.enums.MemberStatus.ACCEPTED);
+        boolean isMember = ledgerMemberRepository.existsByLedgerIdAndAccountIdAndIsDeletedFalse(
+                ledgerId, invitee.getUserId());
         if (isMember) {
             throw new BusinessException(ErrorCode.USER_ALREADY_MEMBER);
         }
@@ -149,14 +165,23 @@ public class LedgerInvitationService {
         invitation.accept();
         LedgerInvitation savedInvitation = ledgerInvitationRepository.save(invitation);
 
-        // 멤버 추가
-        LedgerMember member = LedgerMember.builder()
-                .ledgerId(invitation.getLedgerId())
-                .accountId(userId)
-                .role(invitation.getRole())
-                .joinedAt(LocalDateTime.now())
-                .build();
-        LedgerMember savedMember = ledgerMemberRepository.save(member);
+        // 멤버 추가 (soft-deleted 레코드가 있으면 복원)
+        LedgerMember savedMember = ledgerMemberRepository
+                .findByLedgerIdAndAccountId(invitation.getLedgerId(), userId)
+                .map(existing -> {
+                    existing.restore();
+                    existing.updateRole(invitation.getRole());
+                    return ledgerMemberRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    LedgerMember member = LedgerMember.builder()
+                            .ledgerId(invitation.getLedgerId())
+                            .accountId(userId)
+                            .role(invitation.getRole())
+                            .joinedAt(LocalDateTime.now())
+                            .build();
+                    return ledgerMemberRepository.save(member);
+                });
 
         log.info("Member added from invitation: ledgerMemberId={}, ledgerId={}, accountId={}",
                 savedMember.getLedgerMemberId(), invitation.getLedgerId(), userId);
@@ -164,9 +189,36 @@ public class LedgerInvitationService {
         // 멤버 추가 이벤트 발행
         ledgerMemberEventProducer.publishLedgerMemberAdded(savedMember);
 
-        // 초대자에게 수락 알림 발행
+        // LedgerShare도 생성/복원 (transaction-service 등 다른 서비스에서 권한 체크에 사용)
         Ledger ledger = ledgerRepository.findByLedgerIdAndIsDeletedFalse(invitation.getLedgerId())
                 .orElse(null);
+
+        SharePermission permission = mapRoleToPermission(invitation.getRole());
+        LedgerShare savedShare = ledgerShareRepository
+                .findByLedgerIdAndSharedUserId(invitation.getLedgerId(), userId)
+                .map(existing -> {
+                    existing.restore();
+                    existing.updateFromEvent(ShareStatus.ACCEPTED, permission, LocalDateTime.now());
+                    return ledgerShareRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    LedgerShare share = LedgerShare.builder()
+                            .ledgerId(invitation.getLedgerId())
+                            .ownerId(invitation.getInviterId())
+                            .sharedUserId(userId)
+                            .status(ShareStatus.ACCEPTED)
+                            .permission(permission)
+                            .sharedAt(LocalDateTime.now())
+                            .acceptedAt(LocalDateTime.now())
+                            .build();
+                    return ledgerShareRepository.save(share);
+                });
+        ledgerShareEventProducer.publishLedgerShareCreated(savedShare);
+
+        log.info("LedgerShare created from invitation: ledgerShareId={}, ledgerId={}, sharedUserId={}",
+                savedShare.getLedgerShareId(), invitation.getLedgerId(), userId);
+
+        // 초대자에게 수락 알림 발행
         publishInvitationNotification(savedInvitation, ledger, "INVITATION_ACCEPTED");
 
         return InvitationResponse.from(savedInvitation);
@@ -256,12 +308,21 @@ public class LedgerInvitationService {
     public List<InvitationResponse> getSentInvitations(Long userId, Long ledgerId) {
         log.debug("Getting sent invitations for user: userId={}, ledgerId={}", userId, ledgerId);
 
-        // 가계부 소유자 확인
-        ledgerRepository.findByLedgerIdAndUserIdAndIsDeletedFalse(ledgerId, userId)
+        // 가계부 존재 확인
+        Ledger ledger = ledgerRepository.findByLedgerIdAndIsDeletedFalse(ledgerId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.LEDGER_NOT_FOUND));
 
+        // 소유자 또는 ADMIN 멤버인지 확인
+        boolean isOwner = ledger.getUserId().equals(userId);
+        boolean isAdmin = ledgerMemberRepository.findByLedgerIdAndAccountIdAndIsDeletedFalse(ledgerId, userId)
+                .map(member -> member.getRole() == MemberRole.ADMIN || member.getRole() == MemberRole.OWNER)
+                .orElse(false);
+        if (!isOwner && !isAdmin) {
+            throw new BusinessException(ErrorCode.LEDGER_ACCESS_DENIED);
+        }
+
         List<LedgerInvitation> invitations = ledgerInvitationRepository
-                .findByLedgerIdAndIsDeletedFalse(ledgerId);
+                .findByLedgerIdAndStatusAndIsDeletedFalse(ledgerId, InvitationStatus.PENDING);
 
         return invitations.stream()
                 .map(InvitationResponse::from)
@@ -331,17 +392,52 @@ public class LedgerInvitationService {
 
     /**
      * 알림 이벤트 페이로드 생성
+     *
+     * <p>이벤트 타입별 알림 수신자:</p>
+     * <ul>
+     *   <li>INVITATION_CREATED: 초대받은 사용자 (invitee)</li>
+     *   <li>INVITATION_ACCEPTED/REJECTED: 초대한 사용자 (inviter)</li>
+     * </ul>
      */
-    private Object createNotificationPayload(LedgerInvitation invitation, Ledger ledger, String eventType) {
-        return new Object() {
-            public final String eventType_field = eventType;
-            public final Long invitationId = invitation.getInvitationId();
-            public final Long ledgerId = invitation.getLedgerId();
-            public final String ledgerName = ledger != null ? ledger.getName() : null;
-            public final Long inviterId = invitation.getInviterId();
-            public final String inviterName = null; // 별도 쿼리 필요 시 추가
-            public final String inviteeEmail = invitation.getInviteeEmail();
-            public final String role = invitation.getRole().name();
+    private com.hamkkebu.ledgerservice.kafka.event.InvitationNotificationEvent createNotificationPayload(
+            LedgerInvitation invitation, Ledger ledger, String eventType) {
+
+        // recipientId 결정: CREATED → invitee, ACCEPTED/REJECTED → inviter
+        Long recipientId;
+        if ("INVITATION_CREATED".equals(eventType)) {
+            recipientId = userRepository.findByEmailAndIsDeletedFalse(invitation.getInviteeEmail())
+                    .map(User::getUserId)
+                    .orElse(null);
+        } else {
+            recipientId = invitation.getInviterId();
+        }
+
+        // inviterName 조회
+        String inviterName = userRepository.findByUserIdAndIsDeletedFalse(invitation.getInviterId())
+                .map(User::getUsername)
+                .orElse(null);
+
+        return com.hamkkebu.ledgerservice.kafka.event.InvitationNotificationEvent.builder()
+                .eventType(eventType)
+                .invitationId(invitation.getInvitationId())
+                .ledgerId(invitation.getLedgerId())
+                .ledgerName(ledger != null ? ledger.getName() : null)
+                .inviterId(invitation.getInviterId())
+                .inviterName(inviterName)
+                .inviteeEmail(invitation.getInviteeEmail())
+                .recipientId(recipientId)
+                .role(invitation.getRole().name())
+                .build();
+    }
+
+    /**
+     * MemberRole을 SharePermission으로 매핑
+     */
+    private SharePermission mapRoleToPermission(MemberRole role) {
+        return switch (role) {
+            case OWNER, ADMIN -> SharePermission.ADMIN;
+            case MEMBER -> SharePermission.READ_WRITE;
+            case VIEWER -> SharePermission.READ_ONLY;
         };
     }
 }

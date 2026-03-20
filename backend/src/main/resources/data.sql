@@ -1,7 +1,3 @@
--- Initial admin user (synced from auth-service)
--- This is a fallback in case Kafka sync doesn't work on initial startup
-INSERT INTO tbl_users (user_id, username, email, first_name, last_name, is_active, user_role, is_deleted)
-SELECT 1, 'admin', 'admin@hamkkebu.com', 'Admin', 'User', 1, 'ADMIN', 0
-WHERE NOT EXISTS (SELECT 1 FROM tbl_users WHERE user_id = 1);
-
+-- User data is synced from auth-service via Kafka events (JIT Provisioning)
+-- No hardcoded initial data needed
 SELECT 1;

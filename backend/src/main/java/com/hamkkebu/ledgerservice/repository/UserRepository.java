@@ -12,5 +12,5 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 public interface UserRepository extends SyncedUserRepository<User> {
-    // 서비스별 추가 쿼리 메서드가 필요한 경우 여기에 정의
+    java.util.Optional<User> findByEmailAndIsDeletedFalse(String email);
 }

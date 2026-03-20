@@ -199,7 +199,7 @@ export default function Dashboard() {
             </div>
             <div className={styles['card-content']}>
               <p className={styles['card-label']}>가계부 수</p>
-              <p className={styles['card-value']}>{summary.totalLedgerCount}개</p>
+              <p className={styles['card-value']}>{summary.totalLedgerCount + (summary.sharedLedgerCount || 0)}개</p>
             </div>
           </div>
         </div>
@@ -249,6 +249,45 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Shared Ledger Section (공유받은 가계부) */}
+        {summary.sharedLedgers && summary.sharedLedgers.length > 0 && (
+          <div className={styles['ledger-section']}>
+            <div className={styles['section-header']}>
+              <h2>공유받은 가계부</h2>
+              <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>
+                {summary.sharedLedgerCount}개
+              </span>
+            </div>
+
+            <div className={styles['ledger-grid']}>
+              {summary.sharedLedgers.map((ledger) => (
+                <div
+                  key={`shared-${ledger.ledgerId}`}
+                  className={`${styles['ledger-card']} glass`}
+                  onClick={() => goToLedger(ledger.ledgerId)}
+                  style={{ borderLeft: '3px solid #7c3aed' }}
+                >
+                  <div className={styles['ledger-header']}>
+                    <h3>{ledger.name}</h3>
+                    <span style={{
+                      fontSize: '11px', padding: '2px 8px', borderRadius: '12px',
+                      background: 'rgba(124, 58, 237, 0.1)', color: '#7c3aed', fontWeight: 600,
+                    }}>
+                      공유
+                    </span>
+                  </div>
+                  <p className={styles['ledger-description']}>
+                    {ledger.description || '설명 없음'}
+                  </p>
+                  <div className={styles['ledger-footer']}>
+                    <span className={styles['currency-badge']}>{ledger.currency}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Create/Edit Modal */}

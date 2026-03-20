@@ -32,6 +32,6 @@ public class LedgerMember extends SyncedLedgerMember {
     private Ledger ledger;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "account_id", referencedColumnName = "user_id", insertable = false, updatable = false)
     private User user;
 }

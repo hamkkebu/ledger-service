@@ -4,6 +4,8 @@ import com.hamkkebu.boilerplate.common.ledger.repository.SyncedLedgerShareReposi
 import com.hamkkebu.ledgerservice.data.entity.LedgerShare;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 /**
  * 가계부 공유 Repository
  *
@@ -19,4 +21,9 @@ public interface LedgerShareRepository extends SyncedLedgerShareRepository<Ledge
     // - findByOwnerIdAndIsDeletedFalse(Long)
     // - countByLedgerIdAndStatusAndIsDeletedFalse(Long, ShareStatus)
     // - existsByLedgerIdAndSharedUserIdAndStatusAndIsDeletedFalse(Long, Long, ShareStatus)
+
+    /**
+     * 특정 가계부의 공유 조회 (soft-deleted 포함)
+     */
+    Optional<LedgerShare> findByLedgerIdAndSharedUserId(Long ledgerId, Long sharedUserId);
 }
